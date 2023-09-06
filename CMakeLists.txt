@@ -6,10 +6,10 @@ find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system)
 
 set(SOURCES
     main.cpp 
-    savefunk.cpp
-    savefunk.h
-    drawfunk.cpp
-    drawfunk.h
+    #savefunk.cpp
+    #savefunk.h
+    #drawfunk.cpp
+    #drawfunk.h
     )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
