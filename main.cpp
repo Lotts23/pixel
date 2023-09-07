@@ -6,6 +6,7 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <filesystem>
+#include <cmath>
 
 using namespace sf;
 
@@ -22,6 +23,7 @@ public:
 
             Time elapsedTime = clock.getElapsedTime();
             if (elapsedTime.asSeconds() >= 0.1) {
+                
                 render();
                 clock.restart();
             } else {
@@ -42,8 +44,8 @@ public:
 
 private:
     float scale = 8.0f;
-    int initialSizeX = (128 + 20) * scale;
-    int initialSizeY = (64 + 20) * scale;
+    int initialSizeX = (128 + scale*2 + (scale/2)) * scale;
+    int initialSizeY = (64 + scale*2 + (scale/2)) * scale;
     RenderWindow window;
     Image image;
     Texture texture;
@@ -58,6 +60,7 @@ private:
     Text leftRulerText;
     Text topRulerText;
     Texture rulerPatternTexture;
+    RenderTexture renderTexture;
 
     RectangleShape squareShapes[64];
     RectangleShape squareShapesTop[128];
@@ -65,9 +68,11 @@ private:
     float selectedBrushSize;
     const int numSquares = std::extent<decltype(squareShapes)>::value;
     const int numSquaresTop = std::extent<decltype(squareShapesTop)>::value;
-    const float squareSize = (scale - 1);
-    int sizeX = initialSizeX - 20;
-    int sizeY = initialSizeY - 20;
+    const float squareSize = (scale);
+    int sizeX = initialSizeX - scale*2 + (scale/2);
+    int sizeY = initialSizeY - scale*2 + (scale/2);
+    int startPixelX;
+    int startPixelY;
     RectangleShape menuBar;
     RectangleShape dropDown;
     Text menuFile;
@@ -90,6 +95,7 @@ private:
     Color bgColor;
     std::vector<VertexArray> lines;
 
+
     RectangleShape infoSpace;
     Text infoSymbolErase;
     RectangleShape brushSize;
@@ -98,10 +104,16 @@ private:
     RectangleShape brushSizeMax;
 
     Color penColor = Color::Black;
-    float brushSizeValueMed = (scale/8)*2;
-    float brushSizeValueMax = (scale/8)*4;
-    float brushSizeValueStart = 1/3;
-    float brushSizeValue = 1/3;
+    float brushSizeValueStart = 1;
+    float brushSizeValue = 1;
+    float brushSizeValueMed = brushSizeValueStart*2;
+    float brushSizeValueMax = brushSizeValueStart*4;
+    float t;
+
+    Vector2f liveLineStart;
+    Vector2f liveLineEnd;
+    bool isDrawingliveLine = false;
+
 
     bool directoryExists(const std::string& path) {
         struct stat info;
@@ -115,12 +127,14 @@ private:
          if (!font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf")) {
             throw std::runtime_error("Unable to load font");
         }
-        sizeX = ((window.getSize().x)- (20*scale))/scale;
-        sizeY = ((window.getSize().y)-(20*scale))/scale;
+        sizeX = ((window.getSize().x)- ((scale*2 + (scale/2))*scale))/scale + 1;
+        sizeY = ((window.getSize().y)-((scale*2 + (scale/2))*scale))/scale + 1;
+
+
 
         createText();
         Color bgColor(85, 107, 47);
-        image.create((sizeX), (sizeY), Color::Transparent); // Sen ska vi begränsa ritandet efter detta!
+        image.create((sizeX), (sizeY), Color::Transparent);
 
         texture.loadFromImage(image);
         sprite.setTexture(texture, true);
@@ -140,16 +154,17 @@ private:
 
         isMenuOpen = false;
         isShiftKeyPressed = false;
-        lineStart = Vector2f(-1, -1);
-        lineEnd = Vector2f(-1, -1);
+        lineStart = Vector2f(-scale, -scale);
+        lineEnd = Vector2f(-scale, -scale);
         isDrawing = false;
         isErasing = false;
+        
 
         clock.restart();
     }
 
     void create_menuBar() {
-        menuBar.setSize(Vector2f(static_cast<float>(window.getSize().x), 20));
+        menuBar.setSize(Vector2f(static_cast<float>(window.getSize().x), scale*3));
         menuBar.setFillColor(Color::White);
         menuBar.setPosition(0, 0);
 
@@ -160,45 +175,45 @@ private:
         menuFile.setFont(font);
         menuFile.setCharacterSize(12);
         menuFile.setString("File");
-        menuFile.setPosition(20, 2);
+        menuFile.setPosition(scale*3, scale/4);
         menuFile.setFillColor(Color::Black);
     }
 
     void create_dropDown() {
-        dropDown.setSize(Vector2f(50, 20));
+        dropDown.setSize(Vector2f(scale*6, scale*3));
         dropDown.setFillColor(Color::White);
-        dropDown.setPosition(15, 20);
+        dropDown.setPosition(scale*2 + (scale/2), scale*3);
 
         menuSaveText.setFont(font);
         menuSaveText.setCharacterSize(12);
         menuSaveText.setFillColor(Color::Black);
         menuSaveText.setString("Save");
-        menuSaveText.setPosition(20, 22);
+        menuSaveText.setPosition(scale*3, scale*3 + (scale/2));
     }
 
     void createLines() {
+        leftRuler.setSize(Vector2f(scale*3, scale*64));
+        leftRuler.setFillColor(Color::Transparent);
+        leftRuler.setPosition(0, (scale*11));
+
+        topRuler.setSize(Vector2f(scale*128, scale*3));
+        topRuler.setFillColor(Color::Transparent);
+        topRuler.setPosition((scale*6), 0);
+
         topLine.setSize(Vector2f(scale*128, 1));
         topLine.setFillColor(Color(60, 60, 60));
-        topLine.setPosition(scale*6, scale*11);
+        topLine.setPosition(scale*6, scale*11-1);
 
         leftLine.setSize(Vector2f(1, scale*64));
         leftLine.setFillColor(Color(60, 60, 60));
-        leftLine.setPosition(scale*6, scale*11);
-
-        leftRuler.setSize(Vector2f(24, scale*64));
-        leftRuler.setFillColor(Color::Transparent);
-        leftRuler.setPosition(1, (scale*11)-1);
-
-        topRuler.setSize(Vector2f(scale*128, 24));
-        topRuler.setFillColor(Color::Transparent);
-        topRuler.setPosition((scale*6)-1, (scale*5)+1);
+        leftLine.setPosition(scale*6-1, scale*11);
     }
 
     void createPatterns() {
-        leftRulerPattern.setSize(Vector2f(24, scale*64));
+        leftRulerPattern.setSize(Vector2f(scale*3, scale*64));
         leftRulerPattern.setFillColor(Color::Transparent);
 
-        topRulerPattern.setSize(Vector2f(scale*128, 24));
+        topRulerPattern.setSize(Vector2f(scale*128, scale*3));
         topRulerPattern.setFillColor(Color::Transparent);
     }
 
@@ -211,18 +226,18 @@ private:
         topRulerText.setCharacterSize(12);
         topRulerText.setFillColor(Color::Black);
 
-        for (int i = 0; i <= 64; i += 8) {
+        for (int i = 0; i <= 64; i += scale) {
             Text scaleText(std::to_string(i), font, 12);
             scaleText.setFillColor(Color::Black);
 
-            scaleText.setPosition(scale, (scale*6)+scale + (i*scale) - (scale*2)+(scale*5));
+            scaleText.setPosition(2*scale, (scale*6)+scale + (i*scale) - (scale*2)+(scale*5));
             leftRulerTexts.push_back(scaleText);
         }
-        for (int i = 0; i <= 128; i += 8) {
+        for (int i = 0; i <= 128; i += scale) {
             Text scaleText(std::to_string(i), font, 12);
             scaleText.setFillColor(Color::Black);
 
-            scaleText.setPosition((scale*6)+scale + (i*scale) - (scale*2), 1+(scale*5));
+            scaleText.setPosition((scale*6)+scale + (i*scale) - (scale*2), scale+(scale*5));
             topRulerTexts.push_back(scaleText);
         }
     }
@@ -233,9 +248,9 @@ private:
             if (i % 2 == 0) {
                 squareShapes[i].setFillColor(Color(60, 60, 60));
             } else {
-                squareShapes[i].setFillColor(Color(85, 107, 47));
+                squareShapes[i].setFillColor(Color::Transparent);
             }
-            squareShapes[i].setPosition(scale*5, (scale*11)+1 + (i * (squareSize + 1)));
+            squareShapes[i].setPosition((scale*5), ((scale*11) + (i * (squareSize)))-1);
         }
     }
 
@@ -245,9 +260,9 @@ private:
             if ((i - numSquares) % 2 == 0) {
                 squareShapesTop[i].setFillColor(Color(60, 60, 60));
             } else {
-                squareShapesTop[i].setFillColor(Color(85, 107, 47));
+                squareShapesTop[i].setFillColor(Color::Transparent);
             }
-            squareShapesTop[i].setPosition((scale*6)+1 + (i * (squareSize + 1)), scale*10);
+            squareShapesTop[i].setPosition(((scale*6) + (i * (squareSize))) - 1, scale*10);
         }
     }
 
@@ -272,16 +287,16 @@ private:
 
         brushSize.setFillColor(Color::Transparent);
 
-        brushSizeSmall.setSize(Vector2f(scale, scale));
-        brushSizeSmall.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + 24 + scale);
+        brushSizeSmall.setSize(Vector2f(brushSizeValueStart*scale, brushSizeValueStart*scale));
+        brushSizeSmall.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + (scale*3) + scale);
         brushSizeSmall.setFillColor(Color::Black);
 
-        brushSizeMed.setSize(Vector2f(scale * 2, scale * 2));
-        brushSizeMed.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + 24 + scale * 4);
+        brushSizeMed.setSize(Vector2f(brushSizeValueMed*scale, brushSizeValueMed*scale));
+        brushSizeMed.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + (scale*3) + scale * (scale/2));
         brushSizeMed.setFillColor(Color::Black);
 
-        brushSizeMax.setSize(Vector2f(scale * 3, scale * 3));
-        brushSizeMax.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + 24 + scale * 8);
+        brushSizeMax.setSize(Vector2f(brushSizeValueMax*scale, brushSizeValueMax*scale));
+        brushSizeMax.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + (scale*3) + scale * scale);
         brushSizeMax.setFillColor(Color::Black);
     }
 
@@ -356,9 +371,9 @@ private:
     }
 
     void drawGridLines(RenderWindow& window) {
-        Color gridColor2(80, 100, 40);
+        Color gridColor2(80, 100, 40, 150);
 
-        for (int x = (scale * 6) + 1; x <= (scale * 134); x += scale) {
+        for (int x = (scale * 6); x <= (scale * 134); x += scale) {
             VertexArray line2(Lines, 2);
             line2[0].position = Vector2f(static_cast<float>(x), scale * 11);
             line2[1].position = Vector2f(static_cast<float>(x), (64 + 11) * scale);
@@ -367,7 +382,7 @@ private:
             window.draw(line2);
         }
 
-        for (int y = (scale * 6) + 1; y <= scale * (64 + 6); y += scale) {
+        for (int y = (scale * 6); y <= scale * (64 + 6); y += scale) {
             VertexArray line2(Lines, 2);
             line2[0].position = Vector2f(scale * 6, static_cast<float>(y + (scale * 5)));
             line2[1].position = Vector2f(scale * (128 + 6), static_cast<float>(y + (scale * 5)));
@@ -377,7 +392,7 @@ private:
         }
         Color gridColor(90, 110, 70);
 
-        for (int x = (scale * 6)+1; x <= scale * (128 + 6); x += scale * 8) {
+        for (int x = (scale * 6); x <= scale * (128 + 6); x += scale * 8) {
             VertexArray line(Lines, 2);
             line[0].position = Vector2f(x, (scale * 6) + (scale * 5));
             line[1].position = Vector2f(x, (scale * 64) + (scale * 6) + (scale * 5));
@@ -386,7 +401,7 @@ private:
             window.draw(line);
         }
 
-        for (int y = (scale * 6)+1; y <= scale * (64 + 6); y += scale * 8) {
+        for (int y = (scale * 6); y <= scale * (64 + 6); y += scale * 8) {
             VertexArray line(Lines, 2);
             line[0].position = Vector2f((scale * 6), y + (scale * 5));
             line[1].position = Vector2f((scale * 128) + (scale * 6), y + (scale * 5));
@@ -435,10 +450,9 @@ void handleKeyPressedEvent(const Event& event) {
         isShiftKeyPressed = true;
         if (isDrawing) {
             Vector2i mousePos = Mouse::getPosition(window);
-            lineStart = Vector2f(mousePos);
-            std::cout << "shift pressed while drawing" << std::endl;
-        } else {
-            std::cout << "shift pressed while not drawing" << std::endl;
+            lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
+            lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
+            
         }
     }
      if (event.key.code == Keyboard::X) {
@@ -449,6 +463,7 @@ void handleKeyPressedEvent(const Event& event) {
 void handleKeyReleasedEvent(const Event& event) {
     if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
         isShiftKeyPressed = false;
+        
     }
 }
 
@@ -458,9 +473,12 @@ void handleMouseButtonPressedEvent(const Event& event) {
         if (event.mouseButton.button == Mouse::Left) {
             isDrawing = true;
             if (isShiftKeyPressed) {
-                lineStart = Vector2f(event.mouseButton.x, event.mouseButton.y);
+                Vector2i mousePos = Mouse::getPosition(window);
+                lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
+                lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
                 lineEnd = lineStart;
-                std::cout << "shift pressed while mouse pressed" << std::endl;
+
+                
             } else if (menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
                 isMenuOpen = !isMenuOpen;
             } else {
@@ -479,28 +497,30 @@ void handleMouseButtonPressedEvent(const Event& event) {
     }
 }
 
+void handleMouseMovedEvent(const Event& event) {
+    if (isDrawing && !isShiftKeyPressed) {
+        handleDrawing(event);
+    }
+
+    if (isMousedown && isShiftKeyPressed) {
+       
+    }
+}
+
 void handleMouseButtonReleasedEvent(const Event& event) {
     isDrawing = false;
     isErasing = false;
     isMousedown = false;
 
-    handleSaveButtonClick(event);
-
     if (isShiftKeyPressed) {
-        lineEnd = Vector2f(event.mouseMove.x, event.mouseMove.y);
-        drawShiftLines();
-    }
-}
-
-void handleMouseMovedEvent(const Event& event) {
-    if (isDrawing) {
-        handleDrawing(event);
-    }
-
-    if (isMousedown && isShiftKeyPressed) {
-        lineEnd = Vector2f(event.mouseMove.x, event.mouseMove.y);
-
-        //drawShiftLines(); Här ska vi bara ha den visuella linjen
+        Vector2i mousePos = Mouse::getPosition(window);
+        lineEnd.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
+        lineEnd.y = std::round((mousePos.y - 20) / scale) * scale + 20;
+        
+        drawShiftLines(event);
+        
+    } else {
+        handleSaveButtonClick(event);
     }
 }
 
@@ -530,19 +550,22 @@ void handleSaveButtonClick(const Event& event) {
             saveImageAsCArray();
             saveImageAsBMP();
             isMenuOpen = false;
-            std::cout << "saved" << std::endl;
+            
         }
     }
 }
 
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
-    int x = (mousePos.x - 25 - 20) / scale;
-    int y = ((mousePos.y - 25) / scale) - scale;
+    int x = (mousePos.x - 20 - 20) / scale;
+    int y = ((mousePos.y - 20) / scale) - scale;
+
+    int x_nearest = (x + brushSizeValue / 2) / scale * scale;
+    int y_nearest = (y + brushSizeValue / 2) / scale * scale;
 
     if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
-        for (int i = x - brushSizeValue; i <= x + brushSizeValue; ++i) {
-            for (int j = y - brushSizeValue; j <= y + brushSizeValue; ++j) {
+        for (int i = x_nearest - brushSizeValue; i <= x_nearest + brushSizeValue; i += scale) {
+            for (int j = y_nearest - brushSizeValue; j <= y_nearest + brushSizeValue; j += scale) {
                 if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
                     if (isErasing) {
                         image.setPixel(i, j, Color::Transparent);
@@ -556,151 +579,163 @@ void handleDrawing(const Event& event) {
     }
 }
 
-void drawShiftLines() {
-    std::cout << "drawShiftLines" << std::endl;
-
-  /*   if (isShiftKeyPressed) {
+void drawShiftLines(const Event& event) {
+    if (isShiftKeyPressed) {
         isDrawing = false;
 
-        int startX = static_cast<int>((lineStart.x - 25 - 20) / scale);
-        int startY = static_cast<int>((lineStart.y - 25) / scale);
-        int endX = static_cast<int>((lineEnd.x  + 25 + 20) / scale);
-        int endY = static_cast<int>((lineEnd.y + 25) / scale);
+        int startPixelX = (static_cast<int>((lineStart.x) / scale))-(scale-(scale/4));
+        int startPixelY = (static_cast<int>((lineStart.y) / scale))-(scale+(scale/4));
+        int endPixelX = (static_cast<int>((lineEnd.x) / scale))-(scale-(scale/4));
+        int endPixelY = (static_cast<int>((lineEnd.y) / scale))-(scale+(scale/4));
 
-         
-        while (startX != endX || startY != endY) {
-            VertexArray currentSegment(Quads, scale);
+        if (startPixelX != endPixelX || startPixelY != endPixelY) {
+            float deltaX = static_cast<float>(endPixelX - startPixelX);
+            float deltaY = static_cast<float>(endPixelY - startPixelY);
+            float steps = std::max(std::abs(deltaX), std::abs(deltaY));
 
-            currentSegment[0].position = Vector2f(startX, startY);
-            currentSegment[1].position = Vector2f(startX + (scale - 1), startY);
-            currentSegment[2].position = Vector2f(startX + (scale - 1), startY + (scale - 1));
-            currentSegment[3].position = Vector2f(startX, startY + (scale - 1));
+            for (float t = 0.0f; t <= 1.0f; t += 1.0f / steps) {
+                int x = static_cast<int>(startPixelX + t * deltaX);
+                int y = static_cast<int>(startPixelY + t * deltaY);
 
-            for (int i = 0; i < scale; ++i) {
-                currentSegment[i].color = Color::Black;
-            }
+                int x_nearest = (x + brushSizeValue / 2) / scale * scale;
+                int y_nearest = (y + brushSizeValue / 2) / scale * scale;
 
-            lines.push_back(currentSegment);
+                if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
+                    for (int i = x_nearest - brushSizeValue; i <= x_nearest + brushSizeValue; i += scale) {
+                        for (int j = y_nearest - brushSizeValue; j <= y_nearest + brushSizeValue; j += scale) {
+                            if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
+                                if (isErasing) {
+                                    image.setPixel(i, j, Color::Transparent);
+                                } else {
+                                    image.setPixel(i, j, penColor);
+                                }
 
-            if (startX < endX) {
-                startX += scale;
-            } else if (startX > endX) {
-                startX -= scale;
-            }
-            if (startY < endY) {
-                startY += scale;
-            } else if (startY > endY) {
-                startY -= scale;
+                
+                            }
+                        }
+                    }
+                }
+texture.loadFromImage(image);
+
             }
         }
+        
 
-        lineStart = Vector2f(-1, -1);
-        lineEnd = Vector2f(-1, -1);
-    } */
+        lineStart = Vector2f(-scale, -scale);
+        lineEnd = Vector2f(-scale, -scale);
+    }
 }
+
+
 
 void updateBrush() {
     brush.setSize(Vector2f(scale, scale));
     brush.setOrigin(brush.getSize());
 }
 
+void render() {
+    renderTexture.clear(Color(85, 107, 47));
+    window.clear(Color(85, 107, 47));
+    window.draw(menuBar);
+    window.draw(menuFile);
+    window.draw(topRulerPattern);
+    window.draw(leftRulerPattern);
 
-    void render() {
-        window.clear(Color(85, 107, 47));
-        window.draw(menuBar);
-        window.draw(menuFile);
-        window.draw(topRulerPattern);
-        window.draw(leftRulerPattern);
+    drawGridLines(window);
+    window.draw(topLine);
+    window.draw(leftLine);
+    sprite.setPosition((scale * 6), (scale * 11)); // Grid är nu från precis ovan penseln och slutar 1px under.
+    window.draw(sprite);
+    window.draw(leftRuler);
+    window.draw(topRuler);
+    window.draw(leftRulerText);
+    window.draw(topRulerText);
 
-        drawGridLines(window);
-        window.draw(topLine);
-        window.draw(leftLine);
-        sprite.setPosition((scale*6)-1, (scale*11)-1);
-        window.draw(sprite);
-        window.draw(leftRuler);
-        window.draw(topRuler);
-        window.draw(leftRulerText);
-        window.draw(topRulerText);
+    for (int i = 0; i < numSquares; ++i) {
+        window.draw(squareShapes[i]);
+    }
 
-        for (int i = 0; i < numSquares; ++i) {
-            window.draw(squareShapes[i]);
-        }
+    for (int i = 0; i < numSquaresTop; ++i) {
+        window.draw(squareShapesTop[i]);
+    }
 
-        for (int i = 0; i < numSquaresTop; ++i) {
-            window.draw(squareShapesTop[i]);
-        }
+    Vector2i mousePos = Mouse::getPosition(window);
+    int x_nearest = (static_cast<int>((mousePos.x - 20 - 20) / scale) * scale) + 20 + 20 + (scale / 1);
+    int y_nearest = (static_cast<int>((mousePos.y - 20) / scale) * scale) + 20 + (scale / 2);
+
+    brush.setPosition(static_cast<float>(x_nearest), static_cast<float>(y_nearest));
+    brush.setFillColor(Color(150, 150, 150, 200));
+    window.draw(brush);
+
+    for (const Text& text : leftRulerTexts) {
+        window.draw(text);
+    }
+
+    for (const Text& text : topRulerTexts) {
+        window.draw(text);
+    }
+
+    if (isMenuOpen) {
+        window.draw(dropDown);
+        window.draw(menuSaveText);
+    }
+
+    window.draw(infoSpace);
+    window.draw(brushSize);
+    window.draw(brushSizeSmall);
+    window.draw(brushSizeMed);
+    window.draw(brushSizeMax);
+
+    if (isErasing) {
+        window.draw(infoSymbolErase);
+    }
+
+    if (isDrawing && isShiftKeyPressed) {
         
-        Vector2i mousePos = Mouse::getPosition(window);
-        brush.setPosition(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
-        window.draw(brush);
-
-        for (const Text& text : leftRulerTexts) {
-            window.draw(text);
+        if (isDrawing && lineStart == sf::Vector2f(-1, -1)) {
+            sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+            lineStart = sf::Vector2f(mousePos);
         }
 
-        for (const Text& text : topRulerTexts) {
-            window.draw(text);
-        }
-
-        if (isMenuOpen) {
-            window.draw(dropDown);
-            window.draw(menuSaveText);
-        }
-
-        window.draw(infoSpace);
-        window.draw(brushSize);
-        window.draw(brushSizeSmall);
-        window.draw(brushSizeMed);
-        window.draw(brushSizeMax);
-
-        if (isErasing) {
-            window.draw(infoSymbolErase);
-        }
-
-/* 
+        int startPixelX = (static_cast<int>((lineStart.x) / scale))-(scale-(scale/4));
+        int startPixelY = (static_cast<int>((lineStart.y) / scale))-(scale+(scale/4));
+        int endPixelX = (static_cast<int>((lineEnd.x) / scale))-(scale-(scale/4));
+        int endPixelY = (static_cast<int>((lineEnd.y) / scale))-(scale+(scale/4));
+        
         if (isDrawing && isShiftKeyPressed) {
-            
-            if (isDrawing && lineStart == sf::Vector2f(-1, -1)) {
-                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                lineStart = sf::Vector2f(mousePos);
-            }
-            int startX = static_cast<int>((lineStart.x - 25 - 20) / scale);
-            int startY = static_cast<int>((lineStart.y - 25) / scale);
-            int endX = static_cast<int>((lineEnd.x  + 25 + 20) / scale);
-            int endY = static_cast<int>((lineEnd.y + 25) / scale);
+   
+               while (startPixelX != endPixelX || startPixelY != endPixelY) {
+                sf::VertexArray currentSegment(sf::Quads, 4);
 
-            std::cout << "drawShiftLines: startX=" << startX << ", startY=" << startY << ", endX=" << endX << ", endY=" << endY << std::endl;
-
-            while (startX != endX || startY != endY) {
-                VertexArray currentSegment(Quads, scale);
-
-                currentSegment[0].position = Vector2f(startX, startY);
-                currentSegment[1].position = Vector2f(startX + (scale - 1), startY);
-                currentSegment[2].position = Vector2f(startX + (scale - 1), startY + (scale - 1));
-                currentSegment[3].position = Vector2f(startX, startY + (scale - 1));
+                currentSegment[0].position = sf::Vector2f(startPixelX, startPixelY);
+                currentSegment[1].position = sf::Vector2f(startPixelX + scale, startPixelY);
+                currentSegment[2].position = sf::Vector2f(startPixelX + scale, startPixelY + scale);
+                currentSegment[3].position = sf::Vector2f(startPixelX, startPixelY + scale);
 
                 for (int i = 0; i < scale; ++i) {
-                    currentSegment[i].color = Color::Black;
+                    currentSegment[i].color = sf::Color::Red;
                 }
 
-                lines.push_back(currentSegment);
+                window.draw(currentSegment);
 
-                if (startX < endX) {
-                    startX += scale;
-                } else if (startX > endX) {
-                    startX -= scale;
+
+                if (startPixelX < endPixelX) {
+                    startPixelX += scale;
+                } else if (startPixelX > endPixelX) {
+                    startPixelX -= scale;
                 }
-                if (startY < endY) {
-                    startY += scale;
-                } else if (startY > endY) {
-                    startY -= scale;
+                if (startPixelY < endPixelY) {
+                    startPixelY += scale;
+                } else if (startPixelY > endPixelY) {
+                    startPixelY -= scale;
                 }
             }
         }
- */
-
-        window.display();
     }
+
+    window.display();
+}
+
 };
 
 int main() {
