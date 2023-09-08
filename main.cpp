@@ -68,8 +68,7 @@ private:
 
     RectangleShape squareShapes[64];
     RectangleShape squareShapesTop[128];
-    RectangleShape brush;
-    float selectedBrushSize;
+
     const int numSquares = std::extent<decltype(squareShapes)>::value;
     const int numSquaresTop = std::extent<decltype(squareShapesTop)>::value;
     const float squareSize = (scale);
@@ -109,11 +108,13 @@ private:
     RectangleShape brushSizeMax;
 
     Color penColor = Color::Black;
-    float brushSizeValueStart = 1;
-    float brushSizeValue = 1;
-    float brushSizeValueMed = 2;
-    float brushSizeValueMax = 3;
+    float brushSizeValueStart = 1.0;
+    float brushSizeValue = 1.0;
+    float brushSizeValueMed = 2.0;
+    float brushSizeValueMax = 4.0;
     float t;
+    RectangleShape brush;
+    float selectedBrushSize;
     RectangleShape pixel;
 
     Vector2f liveLineStart;
@@ -729,22 +730,23 @@ void handleSaveButtonClick(const Event& event) {
 
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
-    int scaleAdj = scale/selectedBrushSize;
-    int x = (mousePos.x - 20 - 20) / scaleAdj;
-    int y = ((mousePos.y - 20) / scaleAdj) - scaleAdj;
-    
-    int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
-    int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
+    int scaleAdj = scale*scale;
+    int x = ((mousePos.x) / scale) - (scale);
+    int y = ((mousePos.y) / scale) - (scale);
 
-    if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
-        for (int i = x_nearest - selectedBrushSize / 2; i <= x_nearest + selectedBrushSize / 2; i += scaleAdj) {
-            for (int j = y_nearest - selectedBrushSize / 2; j <= y_nearest + selectedBrushSize / 2; j += scaleAdj) {
-                if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
-                    if (isErasing) {
-                        image.setPixel(i, j, Color::Transparent);
-                    } else {
-                        image.setPixel(i, j, penColor);
-                    }
+    int x_nearest = ((x + selectedBrushSize / 2)/scale)*scale;
+    int y_nearest = ((y + selectedBrushSize / 2)/scale)*scale;
+
+    for (int i = x_nearest - selectedBrushSize / scaleAdj; i <= x_nearest + selectedBrushSize / 4; i++) {
+        
+        for (int j = y_nearest - selectedBrushSize / scaleAdj; j <= y_nearest + selectedBrushSize / 4; j++) {
+
+            if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
+
+                if (isErasing) {
+                    image.setPixel(i, j, Color::Transparent);
+                } else {
+                    image.setPixel(i, j, penColor);
                 }
             }
         }
@@ -772,26 +774,24 @@ void drawShiftLines(const Event& event) {
                 int x = static_cast<int>(startPixelX + t * deltaX);
                 int y = static_cast<int>(startPixelY + t * deltaY);
 
-                int x_nearest = (x + brushSizeValue / 2) / scale * scale;
-                int y_nearest = (y + brushSizeValue / 2) / scale * scale;
+                int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
+                int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
 
                 if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
-                    for (int i = x_nearest - brushSizeValue; i <= x_nearest + brushSizeValue; i += scale) {
-                        for (int j = y_nearest - brushSizeValue; j <= y_nearest + brushSizeValue; j += scale) {
+                    for (int i = x_nearest - selectedBrushSize; i <= x_nearest + selectedBrushSize; i += scale) {
+                        for (int j = y_nearest - selectedBrushSize; j <= y_nearest + selectedBrushSize; j += scale) {
                             if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
                                 if (isErasing) {
                                     image.setPixel(i+1, j, Color::Transparent);
                                 } else {
                                     image.setPixel(i+1, j, penColor);
-                                }
-
-                
+                                }                
                             }
                         }
                     }
                 }
-texture.loadFromImage(image);
-
+                saveImageToHistory();
+                texture.loadFromImage(image);
             }
         }
         lineStart = Vector2f(-scale, -scale);
@@ -800,8 +800,8 @@ texture.loadFromImage(image);
 }
 
 void updateBrush() {
-    brush.setSize(Vector2f(scale, scale));
-    brush.setOrigin(brush.getSize());
+    brush.setSize(Vector2f(scale*selectedBrushSize, scale*selectedBrushSize));
+    brush.setOrigin((brush.getSize().x + selectedBrushSize) / 2, (brush.getSize().y + selectedBrushSize) / 2);
 }
 
 void render() {
@@ -834,7 +834,7 @@ void render() {
     int x_nearest = (static_cast<int>((mousePos.x - 20 - 20) / scale) * scale) + 20 + 20 + (scale / 1);
     int y_nearest = (static_cast<int>((mousePos.y - 20) / scale) * scale) + 20 + (scale / 2);
 
-    if (mousePos.x >= 0 && mousePos.x < sizeX && mousePos.y >= 0 && mousePos.y < sizeY) {
+    if (mousePos.x >= 48 && mousePos.x < (sizeX*scale)+40 && mousePos.y >= 94 && mousePos.y < (sizeY*scale)+80) {
         brush.setPosition(static_cast<float>(x_nearest), static_cast<float>(y_nearest));
         brush.setFillColor(Color(150, 150, 150, 200));
         window.draw(brush);
