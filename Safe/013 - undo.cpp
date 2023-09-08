@@ -1,5 +1,4 @@
 #include <SFML/Graphics.hpp>
-#include <SFML/System.hpp>
 #include <thread>
 #include <fstream>
 #include <iostream>
@@ -10,7 +9,6 @@
 #include <cmath>
 
 using namespace sf;
-namespace fs = std::filesystem;
 
 class DrawingApp {
 public:
@@ -99,7 +97,6 @@ private:
     Color bgColor;
     std::vector<VertexArray> lines;
     std::stack<sf::Image> imageHistory;
-    std::stack<sf::Image> redoHistory;
 
     RectangleShape infoSpace;
     Text infoSymbolErase;
@@ -121,8 +118,6 @@ private:
     bool isDrawingliveLine = false;
     Vector2f lineStartPreview;
     Vector2f lineEndPreview;
-
-    
 
 
     bool directoryExists(const std::string& path) {
@@ -171,8 +166,6 @@ private:
         lineEnd = Vector2f(-scale, -scale);
         lineStartPreview = Vector2f(-scale, -scale);
         lineEndPreview = Vector2f(-scale, -scale);
-
-        sf::RenderWindow window(sf::VideoMode(800, 600), "File Open Dialog");
 
         clock.restart();
     }
@@ -314,100 +307,6 @@ private:
         brushSizeMax.setFillColor(Color::Black);
     }
 
-bool openAndLoadImage(sf::Image& image) {
-    sf::RenderWindow fileDialog(sf::VideoMode(400, 300), "File Open Dialog");
-    fileDialog.setPosition(sf::Vector2i(100, 100));
-
-    sf::Font font;
-    font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf");
-
-    std::string folderPath = "./save";
-    std::vector<std::string> fileList;  
-    int selectedFileIndex = 0;  
-
-        
-    for (const auto& entry : fs::directory_iterator(folderPath)) {
-        if (entry.is_regular_file()) {
-            std::string filename = entry.path().filename().string();
-            if (filename.length() >= 4 && filename.substr(filename.length() - 4) == ".bmp") {
-                fileList.push_back(filename);
-            }
-        }
-    }
-
-    while (fileDialog.isOpen()) {
-        sf::Event event;
-        while (fileDialog.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                fileDialog.close();
-                return false;
-            }
-
-            if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Escape) {
-                    fileDialog.close();
-                    return false;
-                }
-                else if (event.key.code == sf::Keyboard::Up) {
-                    
-                    if (selectedFileIndex > 0) {
-                        selectedFileIndex--;
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::Down) {
-                    
-                    if (selectedFileIndex < fileList.size() - 1) {
-                        selectedFileIndex++;
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::Enter) {
-    
-    std::string selectedFile = folderPath + "/" + fileList[selectedFileIndex];
-
-    
-    sf::Image loadedImage;
-    if (loadedImage.loadFromFile(selectedFile)) {
-        
-
-        texture.loadFromImage(loadedImage);
-
-        
-        
-        window.display();
-
-        
-    }
-
-    fileDialog.close();
-    return true; 
-}
-
-            }
-        }
-
-        fileDialog.clear(sf::Color::White);
-
-        
-        int yOffset = 40;
-        for (size_t i = 0; i < fileList.size(); ++i) {
-            sf::Text fileText(fileList[i], font, 16);
-            fileText.setFillColor(sf::Color::Black);
-            fileText.setPosition(10, yOffset);
-            if (i == selectedFileIndex) {
-                
-                fileText.setFillColor(sf::Color::Red);
-            }
-            fileDialog.draw(fileText);
-            yOffset += 20;
-        }
-
-        fileDialog.display();
-    }
-
-    return false;
-}
-
-
     bool createDirectory(const std::string& path) {
         if (!std::filesystem::exists(path)) {
             int status = mkdir(path.c_str(), 0777);
@@ -518,27 +417,13 @@ bool openAndLoadImage(sf::Image& image) {
 
 void saveImageToHistory() {
     imageHistory.push(image);
-    while (!redoHistory.empty()) {
-        redoHistory.pop();
-    }
 }
 
 void undo() {
     if (!imageHistory.empty()) {
-        redoHistory.push(imageHistory.top()); 
-        imageHistory.pop(); 
-        if (!imageHistory.empty()) {
-            image = imageHistory.top(); 
-            texture.loadFromImage(image);
-        }
-    }
-}
-
-void redo() {
-    if (!redoHistory.empty()) {
-        imageHistory.push(image); 
-        image = redoHistory.top(); 
-        redoHistory.pop(); 
+        // lite osäker på om jag sparar det senaste, eller ska vänta en loop och sen spara?
+        image = imageHistory.top();
+        imageHistory.pop();
         texture.loadFromImage(image);
     }
 }
@@ -607,19 +492,9 @@ void handleKeyPressedEvent(const Event& event) {
         selectedBrushSize = brushSizeValueMax;
         updateBrush();
     }
-    if (event.key.code == Keyboard::Z && (event.key.control || event.key.system) && !(Keyboard::isKeyPressed(Keyboard::LShift) || Keyboard::isKeyPressed(Keyboard::RShift))) {
+    if (event.key.code == Keyboard::Z && (event.key.control || event.key.system)) {
         undo();
-    }
-    if (event.key.code == Keyboard::Z && (event.key.control || event.key.system) && Keyboard::isKeyPressed(Keyboard::LShift)) {
-        redo();
-    }
-    if (event.key.code == sf::Keyboard::O || event.key.code == sf::Keyboard::L) {
-        if (openAndLoadImage(image)) {
-                            sf::Texture texture;
-                            texture.loadFromImage(image);
-                            sf::Sprite sprite(texture);
-        }
-    }
+}
 }
 
 void handleKeyReleasedEvent(const Event& event) {
@@ -732,7 +607,7 @@ void handleDrawing(const Event& event) {
     int scaleAdj = scale/selectedBrushSize;
     int x = (mousePos.x - 20 - 20) / scaleAdj;
     int y = ((mousePos.y - 20) / scaleAdj) - scaleAdj;
-    
+    //std::cout << scale << ", " << scaleAdj << ", " << selectedBrushSize << std::endl;
     int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
     int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
 
@@ -815,7 +690,7 @@ void render() {
     drawGridLines(window);
     window.draw(topLine);
     window.draw(leftLine);
-    sprite.setPosition((scale * 6), (scale * 11)); 
+    sprite.setPosition((scale * 6), (scale * 11)); // Grid är nu från precis ovan penseln och slutar 1px under.
     window.draw(sprite);
     window.draw(leftRuler);
     window.draw(topRuler);

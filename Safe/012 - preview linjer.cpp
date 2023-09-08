@@ -453,12 +453,16 @@ void handleEvents() {
 void handleKeyPressedEvent(const Event& event) {
     if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
         isShiftKeyPressed = true;
+        Vector2i mousePos = Mouse::getPosition(window);
+        lineStartPreview = Vector2f(mousePos.x, mousePos.y);
+        lineEndPreview = lineStartPreview;
         if (isDrawing) {
             Vector2i mousePos = Mouse::getPosition(window);
             lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
             lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-                lineStartPreview = Vector2f(event.mouseButton.x, event.mouseButton.y);
-                lineEndPreview = lineStartPreview;
+            lineStartPreview = Vector2f(mousePos.x, mousePos.y);
+            lineEndPreview = lineStartPreview;
+            lineEnd = lineStart;
         }
     }
      if (event.key.code == Keyboard::X) {
@@ -478,23 +482,26 @@ void handleKeyReleasedEvent(const Event& event) {
 void handleMouseButtonPressedEvent(const Event& event) {
     if (event.mouseButton.button == Mouse::Left || event.mouseButton.button == Mouse::Right) {
         isMousedown = true;
+
         if (event.mouseButton.button == Mouse::Left) {
+            Vector2i mousePos = Mouse::getPosition(window);
+            lineStartPreview = Vector2f(mousePos.x, mousePos.y);
+            lineEndPreview = lineStartPreview;
             isDrawing = true;
             if (isShiftKeyPressed) {
                 Vector2i mousePos = Mouse::getPosition(window);
                 lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
                 lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-                lineEnd = lineStart;
-                lineStartPreview = Vector2f(event.mouseButton.x, event.mouseButton.y);
+                lineStartPreview = Vector2f(lineStart.x, lineStart.y);
                 lineEndPreview = lineStartPreview;
-                
+                lineEnd = lineStart;
             } else if (menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
                 isMenuOpen = !isMenuOpen;
-            } else {
+            }
+            if (isDrawing && !isShiftKeyPressed) {
                 handleDrawing(event);
             }
         }
-
         if (!menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
             isMenuOpen = false;
         }
@@ -512,6 +519,7 @@ void handleMouseMovedEvent(const Event& event) {
     }
 
     if (isMousedown && isShiftKeyPressed) {
+        Vector2i mousePos = Mouse::getPosition(window);
         lineEndPreview = Vector2f(event.mouseMove.x, event.mouseMove.y);
     }
 }
@@ -569,6 +577,7 @@ void handleSaveButtonClick(const Event& event) {
 
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
+
     int x = (mousePos.x - 20 - 20) / scale;
     int y = ((mousePos.y - 20) / scale) - scale;
 
@@ -638,8 +647,6 @@ texture.loadFromImage(image);
     }
 }
 
-
-
 void updateBrush() {
     brush.setSize(Vector2f(scale, scale));
     brush.setOrigin(brush.getSize());
@@ -704,6 +711,7 @@ void render() {
 
     RectangleShape pixel(Vector2f(scale, scale));
     if (isShiftKeyPressed) {
+
         int startPixelX = static_cast<int>(lineStartPreview.x / scale);
         int startPixelY = static_cast<int>(lineStartPreview.y / scale);
         int endPixelX = static_cast<int>(lineEndPreview.x / scale);
