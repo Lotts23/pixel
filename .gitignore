@@ -1,5 +1,4 @@
 build/*
-Safe/*
 .DS_Store
 *.code-workspace
 test*

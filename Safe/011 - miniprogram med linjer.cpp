@@ -87,8 +87,6 @@ private:
         lineEnd = Vector2f(-scale, -scale);
         isDrawing = false;
 
-        currentSegment.clear();
-
         clock.restart();
     }
 
@@ -134,7 +132,6 @@ void handleKeyPressedEvent(const Event& event) {
             Vector2i mousePos = Mouse::getPosition(window);
             lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
             lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-            lineEnd = lineStart;
         }
     }
 }
@@ -155,9 +152,8 @@ void handleMouseButtonPressedEvent(const Event& event) {
                 lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
                 lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
                 lineEnd = lineStart;
-                previewLineStart.x = lineStart.x;
-                previewLineStart.y = lineStart.y;
-
+                previewLineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
+                previewLineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
 
             } else {
                 handleDrawing(event);
@@ -171,11 +167,9 @@ void handleMouseMovedEvent(const Event& event) {
         handleDrawing(event);
     }
     if (isMousedown && isShiftKeyPressed) {
-         Vector2i mousePos = Mouse::getPosition(window);
-        int x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-        int y = std::round((mousePos.y - 20) / scale) * scale + 20;
-        previewLineEnd.x = x;
-        previewLineEnd.y = y; 
+        Vector2i mousePos = Mouse::getPosition(window);
+        previewLineEnd.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
+        previewLineEnd.y = std::round((mousePos.y - 20) / scale) * scale + 20;
     }
 }
 
@@ -191,6 +185,7 @@ void handleMouseButtonReleasedEvent(const Event& event) {
         drawShiftLines(event);
     }
 }
+
 
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
@@ -237,7 +232,23 @@ void drawShiftLines(const Event& event) {
                     for (int i = x_nearest - brushSizeValue; i <= x_nearest + brushSizeValue; i += scale) {
                         for (int j = y_nearest - brushSizeValue; j <= y_nearest + brushSizeValue; j += scale) {
                             if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
-                                    image.setPixel(i, j, (Color::Red));
+
+                                    image.setPixel(i, j, penColor);
+                
+                                    while (startPixelX == !endPixelX && startPixelY == !endPixelY) {
+                                        VertexArray currentSegment(sf::Quads, 4);
+
+                                        currentSegment[0].position = lineStart;
+                                        currentSegment[1].position = lineEnd;
+                                        currentSegment[2].position = lineEnd;
+                                        currentSegment[3].position = lineStart;
+
+                                        for (int i = 0; i < 4; ++i) {
+                                            currentSegment[i].color = sf::Color::White;
+                                        }
+                                        window.draw(currentSegment);
+                                    }
+
 
                             }
                         }
@@ -248,6 +259,7 @@ void drawShiftLines(const Event& event) {
             }
         }
         
+        currentSegment.clear();
         
         lineStart = Vector2f(-scale, -scale);
         lineEnd = Vector2f(-scale, -scale);
@@ -266,18 +278,19 @@ void render() {
     sprite.setPosition((scale * 6), (scale * 11));
     window.draw(sprite);
 
-
-    if (isShiftKeyPressed) {if (isShiftKeyPressed) {
-    VertexArray previewLine(sf::LinesStrip);
-    previewLine.append(Vertex(previewLineStart, Color::Blue));
-    previewLine.append(Vertex(previewLineEnd, Color::Blue));
-    window.draw(previewLine);
-}
-
+    if (isShiftKeyPressed) {
+        VertexArray previewLine(sf::Lines, 2);
+        previewLine[0].position = previewLineStart;
+        previewLine[1].position = previewLineEnd;
+        previewLine[0].color = penColor;
+        previewLine[1].color = penColor;
+        window.draw(previewLine);
     }
 
     window.display();
 }
+
+
 };
 
 int main() {
