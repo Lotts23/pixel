@@ -43,7 +43,7 @@ public:
     }
 
 private:
-    const float scale = 8.0f;
+    const float scale = 6.0f;
     const int baseSizeX = 128;
     const int baseSizeY = 64;
 
@@ -93,7 +93,6 @@ private:
     Image image;
     Texture texture;
     Sprite sprite;
-    Sprite previewSprite;
 
     std::stack<Image> imageHistory;
     std::stack<Image> redoHistory;
@@ -115,25 +114,24 @@ private:
     Vector2f infoSpacePos = Vector2f(static_cast<float>(window.getSize().x) - baseSizeX - smallWidth, extraTopHeight + baseSizeY + (medWidth * 2));
     RectangleShape infoSpace;
     RectangleShape previewScreen;
-    bool outlineColorOnOff = false;
+    bool outlineColorOnOff = true;
     RectangleShape checkbox;
     Text checkboxInfoText;
     Text checkmark;
+
 
     Text infoSymbolErase;
 
     bool isDrawing = false;
     bool isErasing = false;
 
-    float brushSizeValueStart = brushSizeValueSmall;
-    float selectedBrushSize = brushSizeValueStart;    
 
+    float brushSizeValueStart = brushSizeValueSmall;
+    float selectedBrushSize = brushSizeValueStart;
+    RectangleShape brushSize;
     RectangleShape brushSizeSmall;
     RectangleShape brushSizeMed;
     RectangleShape brushSizeMax;
-
-    float brushSizeValue = selectedBrushSize;
-    RectangleShape brushSize;
     RectangleShape brush;
 
     bool isShiftKeyPressed = false;
@@ -141,7 +139,6 @@ private:
     Vector2f lineEndPreview;
     Vector2f lineStart;
     Vector2f lineEnd;
-    RectangleShape preview;
 
     bool isMousedown = false;
 
@@ -156,6 +153,7 @@ private:
     */
 
 void initialize() {
+
 
     create_menuBar();
         if (!font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf")) {
@@ -183,7 +181,6 @@ void initialize() {
         texture.loadFromImage(image);
         sprite.setTexture(texture, true);
         sprite.setScale(scale, scale);
-        previewScreen.setTexture(&texture);
 
     frameClock.restart();
 /*
@@ -360,11 +357,8 @@ void create_preview() {
         previewScreen.setOutlineColor(elementColor);
     } else {
         previewScreen.setOutlineColor(bgColor);
-    };
-    texture.loadFromImage(image);
-    previewSprite.setTexture(texture);
-    previewSprite.setPosition(previewScreen.getPosition());
-    previewSprite.setScale(baseSizeX, baseSizeY);
+    }
+    previewScreen.setFillColor(Color::Transparent);
 
     checkbox.setSize(Vector2f(smallWidth/2, smallWidth/2));
     checkbox.setPosition(previewScreen.getPosition().x, previewScreen.getPosition().y + baseSizeY + smallWidth);
@@ -630,7 +624,7 @@ void handleEvents() {
             case Event::MouseMoved:
                 handleMouseMovedEvent(event);
                 break;
-
+ 
             default:
                 break;
         }
@@ -641,16 +635,15 @@ void handleKeyPressedEvent(const Event& event) {
     if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
         isShiftKeyPressed = true;
         Vector2i mousePos = Mouse::getPosition(window);
-        lineStartPreview = Vector2f(mousePos.x, mousePos.y);
+        Vector2f spritePosition = sprite.getPosition();
+        Vector2f mapMousePos = window.mapPixelToCoords(mousePos) - spritePosition;
+        lineStartPreview = Vector2f(mapMousePos.x, mapMousePos.y);
         lineEndPreview = lineStartPreview;
         if (isDrawing) {
-            Vector2i mousePos = Mouse::getPosition(window);
-            lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-            lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-            lineStartPreview = Vector2f(mousePos.x, mousePos.y);
-            lineEndPreview = lineStartPreview;
+            lineStart.x = std::round(mapMousePos.x);
+            lineStart.y = std::round(mapMousePos.y);
             lineEnd = lineStart;
-        }
+        } 
     }
     if (event.key.code == Keyboard::X) {
     isErasing = true;
@@ -673,46 +666,50 @@ void handleKeyPressedEvent(const Event& event) {
     if (event.key.code == Keyboard::Z && (event.key.control || event.key.system) && Keyboard::isKeyPressed(Keyboard::LShift)) {
         redo();
     }
-    if (event.key.code == sf::Keyboard::O || event.key.code == sf::Keyboard::L) {
+    if (event.key.code == Keyboard::O || event.key.code == Keyboard::L) {
         if (openAndLoadImage(image)) {
-                            sf::Texture texture;
+                            Texture texture;
                             texture.loadFromImage(image);
-                            sf::Sprite sprite(texture);
+                            Sprite sprite(texture);
         }
     }
+    if (event.key.code == Keyboard::S) {
+        saveImageAsCArray();
+        saveImageAsBMP();
+        }
 }
+
 
 void handleKeyReleasedEvent(const Event& event) {
     if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
         isShiftKeyPressed = false;
-        preview.setPosition(Vector2f(-scale, -scale));
-        preview.setFillColor(Color::Transparent);
-        
+        //pixel.setPosition(Vector2f(-scale, -scale));
+        //pixel.setFillColor(Color::Transparent);
     }
 }
 
 void handleMouseButtonPressedEvent(const Event& event) {
     if (event.mouseButton.button == Mouse::Left || event.mouseButton.button == Mouse::Right) {
         isMousedown = true;
-
+        isDrawing = true;
         if (event.mouseButton.button == Mouse::Left) {
             Vector2i mousePos = Mouse::getPosition(window);
-            lineStartPreview = Vector2f(mousePos.x, mousePos.y);
+            Vector2f spritePosition = sprite.getPosition();
+            Vector2f mapMousePos = window.mapPixelToCoords(mousePos) - spritePosition;
+            lineStartPreview = Vector2f(mapMousePos.x, mapMousePos.y);
             lineEndPreview = lineStartPreview;
-            isDrawing = true;
-            if (isShiftKeyPressed) {
-                Vector2i mousePos = Mouse::getPosition(window);
-                lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-                lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-                lineStartPreview = Vector2f(lineStart.x, lineStart.y);
+            if (checkbox.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
+                outlineColorOnOff = !outlineColorOnOff;
+            } else if (isShiftKeyPressed) {
+                isDrawing = false;
+                lineStart = Vector2f(mapMousePos.x, mapMousePos.y);
+                lineStartPreview = Vector2f(mapMousePos.x, mapMousePos.y);
                 lineEndPreview = lineStartPreview;
                 lineEnd = lineStart;
             } else if (menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
                 isMenuOpen = !isMenuOpen;
-            } else if (checkbox.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
-                outlineColorOnOff = !outlineColorOnOff;
-                create_preview();
-            } else if (isDrawing && !isShiftKeyPressed) {
+            }
+            if (!isShiftKeyPressed) {
                 handleDrawing(event);
             }
         }
@@ -734,7 +731,9 @@ void handleMouseMovedEvent(const Event& event) {
 
     if (isMousedown && isShiftKeyPressed) {
         Vector2i mousePos = Mouse::getPosition(window);
-        lineEndPreview = Vector2f(event.mouseMove.x, event.mouseMove.y);
+        Vector2f spritePosition = sprite.getPosition();
+        Vector2f mapMousePos = window.mapPixelToCoords(mousePos) - spritePosition;
+        lineEndPreview = Vector2f(mapMousePos.x, mapMousePos.y);
     }
 }
 
@@ -742,15 +741,17 @@ void handleMouseButtonReleasedEvent(const Event& event) {
     isDrawing = false;
     isErasing = false;
     isMousedown = false;
-
     if (isShiftKeyPressed) {
         Vector2i mousePos = Mouse::getPosition(window);
-        lineEnd.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-        lineEnd.y = std::round((mousePos.y - 20) / scale) * scale + 20;
+        Vector2f spritePosition = sprite.getPosition();
+        lineEnd = Vector2f(mousePos.x - spritePosition.x, mousePos.y - spritePosition.y);
+
+        Vector2f mapMousePos = window.mapPixelToCoords(mousePos) - spritePosition;
+        lineEnd = Vector2f(mapMousePos.x, mapMousePos.y);
         
         drawShiftLines(event);
-        preview.setPosition(Vector2f(-scale, -scale));
-        preview.setFillColor(Color::Transparent);
+        //pixel.setPosition(Vector2f(-scale, -scale));
+        //pixel.setFillColor(Color::Transparent);
     } else {
         handleSaveButtonClick(event);
     }
@@ -778,20 +779,30 @@ void handleBrushSizeClick(const Event& event) {
 void handleSaveButtonClick(const Event& event) {
     if (event.mouseButton.button == Mouse::Left) {
         Vector2i mousePos = Mouse::getPosition(window);
-        if (menuSaveText.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+         if (menuSaveText.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
             saveImageAsCArray();
             saveImageAsBMP();
-            isMenuOpen = false;
-            
-        }
+            isMenuOpen = false; 
+        } 
     }
 }
 
-// Drawing behöver fortfarande justeras in på rätt ställe!
+// ### - Nu ritar vi - ###
 void handleDrawing(const Event& event) {
+
+    isDrawing = true;
+    isDrawing = true;
     Vector2i mousePos = Mouse::getPosition(window);
-    int x = ((mousePos.x)/scale);
-    int y = ((mousePos.y)/scale);
+    int spriteWidth = sprite.getGlobalBounds().width;
+    int spriteHeight = sprite.getGlobalBounds().height;
+    int spriteLeftSide = sprite.getPosition().x;
+    int spriteTopSide = sprite.getPosition().y;
+    int spriteRightSide = spriteLeftSide + spriteWidth;
+    int spriteBottomSide = spriteTopSide + spriteHeight;
+
+    int scaleAdj = scale/selectedBrushSize;
+    int x = (mousePos.x - 20 - 20) / scaleAdj;
+    int y = ((mousePos.y - 20) / scaleAdj) - scaleAdj;
 
     int x_nearest = (x / scale) * scale;
     int y_nearest = (y / scale) * scale;
@@ -800,51 +811,61 @@ void handleDrawing(const Event& event) {
         x_nearest -= (selectedBrushSize / 2);
         y_nearest -= (selectedBrushSize / 2);
     }
-
-    for (int i = 0; i < selectedBrushSize; i++) {
-        for (int j = 0; j < selectedBrushSize; j++) {
-            if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                image.setPixel(x_nearest + i, y_nearest + j, penColor);
-            } else {isDrawing = false;}
+    // Om pendeln går utanför så får den inte börja i andra änden! + nu går den en pixel för lågt.
+    if (mousePos.x >= spriteLeftSide && mousePos.x < spriteRightSide && mousePos.y >= spriteTopSide && mousePos.y < spriteBottomSide) {
+        for (int i = 0; i < selectedBrushSize; i++) {
+            for (int j = 0; j < selectedBrushSize; j++) {
+                    if (isErasing) {
+                        image.setPixel(x_nearest + i, y_nearest + j, Color::Transparent);
+                    } else {
+                        image.setPixel(x_nearest + i, y_nearest + j, penColor);
+                    }
+            }
         }
     }
+    else {isDrawing = false;}
     saveImageToHistory();
     texture.loadFromImage(image);
-}    
+} 
 
+// Försök få shiftlines att bete sig som previewlines i render
 void drawShiftLines(const Event& event) {
     if (isShiftKeyPressed) {
         isDrawing = false;
         Vector2i mousePos = Mouse::getPosition(window);
-// Alltså det här är en jäkla röra nu, men det funkar. Försök i ANNAN fil att förenkla, inte här
-        int lineStartPointX = (static_cast<int>((lineStart.x) / scale))-(scale-(scale/4));
-        int lineStartPointY = (static_cast<int>((lineStart.y) / scale))-(scale+(scale/4));
-        int lineEndPointX = (static_cast<int>((lineEnd.x) / scale))-(scale-(scale/4));
-        int lineEndPointY = (static_cast<int>((lineEnd.y) / scale))-(scale+(scale/4));
 
-        if (lineStartPointX != lineEndPointX || lineStartPointY != lineEndPointY) {
-            float deltaX = static_cast<float>(lineEndPointX - lineStartPointX);
-            float deltaY = static_cast<float>(lineEndPointY - lineStartPointY);
-            float steps = std::max(std::abs(deltaX), std::abs(deltaY));
+        int startPixelX = static_cast<int>(lineStart.x / scale);
+        int startPixelY = static_cast<int>(lineStart.y / scale);
+        int endPixelX = static_cast<int>(lineEnd.x / scale);
+        int endPixelY = static_cast<int>(lineEnd.y / scale);
+
+        if (startPixelX != endPixelX || startPixelY != endPixelY) {
+            float deltaX = static_cast<float>(endPixelX - startPixelX);
+            float deltaY = static_cast<float>(endPixelY - startPixelY);
+            float steps = std::max(std::abs(deltaX) / selectedBrushSize, std::abs(deltaY) / selectedBrushSize);
 
             for (float t = 0.0f; t <= 1.0f; t += 1.0f / steps) {
-                int x = static_cast<int>(lineStartPointX + t * deltaX)-1;
-                int y = static_cast<int>(lineStartPointY + t * deltaY);
+                int x = static_cast<int>(startPixelX + t * deltaX);
+                int y = static_cast<int>(startPixelY + t * deltaY);
 
-                int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
-                int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
-// Just nu funkar bara den lilla penseln
-                for (int i = x_nearest - selectedBrushSize; i <= x_nearest + selectedBrushSize; i += scale) {
-                    for (int j = y_nearest - selectedBrushSize; j <= y_nearest + selectedBrushSize; j += scale) {
-                        if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                            if (isErasing) {
-                                image.setPixel(i+1, j, Color::Transparent);
-                            } else {
-                                image.setPixel(i+1, j, penColor);
-                            }
+                int x_nearest = ((x + (selectedBrushSize)) / scale * scale);
+                int y_nearest = ((y + (selectedBrushSize )) / scale * scale);
+
+                if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
+                    for (int i = x_nearest - static_cast<int>(selectedBrushSize / scale); i <= x_nearest + static_cast<int>(selectedBrushSize / scale); i++) {
+                        for (int j = y_nearest - static_cast<int>(selectedBrushSize / scale); j <= y_nearest + static_cast<int>(selectedBrushSize / scale); j++) {
+                   
+                                if (isErasing) {
+                                    image.setPixel(i, j, Color::Transparent);
+                                } else {
+                                    image.setPixel(i, j, penColor);
+
+                                }                
+                            
                         }
                     }
                 }
+                saveImageToHistory();
                 texture.loadFromImage(image);
             }
         }
@@ -885,7 +906,6 @@ void render() {
     window.draw(infoSpace);
     window.draw(checkbox);
     window.draw(checkboxInfoText);
-
     if (outlineColorOnOff) {
         window.draw(checkmark);
     }
@@ -896,8 +916,7 @@ void render() {
     window.draw(brushSizeMax);
 
 
-// Min brush får programmet att krasha! &#€%"%"!
-/*     // Jag måste skapa min visuella brush här nere för loopen...
+    // Jag måste skapa min visuella brush här nere för loopen...
         Vector2i mousePos = Mouse::getPosition(window);
         // Begränsar den till att synas inom spriten
         Vector2f spritePosition = sprite.getPosition();
@@ -909,13 +928,14 @@ void render() {
         int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq));
         int brushSizeHalf = std::max(static_cast<float>(brushSizeValue/2), brushSizeValueStart);
 
-        if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-            brush.setSize(Vector2f(brushSizeValue, brushSizeValue));
-            brush.setPosition(static_cast<int>(x_nearest) + brushSizeHalf, static_cast<int>(y_nearest) + brushSizeHalf);
-            brush.setFillColor(mutedWhite);
+        if (mousePos.x >= spritePosition.x && mousePos.x <= spritePosition.x + spriteBounds.width &&
+           mousePos.y >= spritePosition.y && mousePos.y <= spritePosition.y + spriteBounds.height) {
+        brush.setSize(Vector2f(brushSizeValue, brushSizeValue));
+        brush.setPosition(static_cast<int>(x_nearest) + brushSizeHalf, static_cast<int>(y_nearest) + brushSizeHalf);
+        brush.setFillColor(mutedWhite);
         }
     // Borste slut
-    window.draw(brush); */
+    window.draw(brush);
     updateBrush();
 
     if (isErasing) {
@@ -928,43 +948,8 @@ void render() {
         window.draw(menuLoadText);
     }
 
-// previewlinjer för shiftline
-    RectangleShape preview(Vector2f(scale, scale));
-    if (isShiftKeyPressed) {
-
-        int lineStartPointX = static_cast<int>(lineStartPreview.x / scale);
-        int lineStartPointY = static_cast<int>(lineStartPreview.y / scale);
-        int lineEndPointX = static_cast<int>(lineEndPreview.x / scale);
-        int lineEndPointY = static_cast<int>(lineEndPreview.y / scale);
-
-        if (lineStartPointX != lineEndPointX || lineStartPointY != lineEndPointY) {
-            float deltaX = static_cast<float>(lineEndPointX - lineStartPointX);
-            float deltaY = static_cast<float>(lineEndPointY - lineStartPointY);
-            float steps = std::max(std::abs(deltaX), std::abs(deltaY)) * scale;
-
-            for (float t = 0.0f; t <= 1.0f; t += scale / steps) {
-                int x = static_cast<int>(lineStartPointX + t * deltaX);
-                int y = static_cast<int>(lineStartPointY + t * deltaY);
-
-                int x_nearest = (static_cast<int>(x));
-                int y_nearest = (static_cast<int>(y));
-
-                if (x >= 0 && x < initialSizeX && y >= 0 && y < initialSizeY) {
-
-                    preview.setPosition(Vector2f(x_nearest*scale, y_nearest*scale));
-                    preview.setFillColor(Color(penColor));
-                    window.draw(preview);
-                }
-            }
-        }
-    }
-    preview.setPosition(Vector2f(-scale, -scale)); 
-    preview.setFillColor(Color::Transparent);
-// preview slut
-
     sprite.setPosition(rulerSize, extraTopHeight); 
     window.draw(sprite);
-    window.draw(previewSprite);
     window.display();    
 }
 

@@ -43,7 +43,7 @@ public:
     }
 
 private:
-    const float scale = 6.0f;
+    const float scale = 8.0f;
     const int baseSizeX = 128;
     const int baseSizeY = 64;
 
@@ -93,6 +93,7 @@ private:
     Image image;
     Texture texture;
     Sprite sprite;
+    Sprite previewSprite;
 
     std::stack<Image> imageHistory;
     std::stack<Image> redoHistory;
@@ -130,7 +131,6 @@ private:
     RectangleShape brushSizeSmall;
     RectangleShape brushSizeMed;
     RectangleShape brushSizeMax;
-    
 
     float brushSizeValue = selectedBrushSize;
     RectangleShape brushSize;
@@ -183,6 +183,7 @@ void initialize() {
         texture.loadFromImage(image);
         sprite.setTexture(texture, true);
         sprite.setScale(scale, scale);
+        previewScreen.setTexture(&texture);
 
     frameClock.restart();
 /*
@@ -359,8 +360,11 @@ void create_preview() {
         previewScreen.setOutlineColor(elementColor);
     } else {
         previewScreen.setOutlineColor(bgColor);
-    }
-    previewScreen.setFillColor(Color::Transparent);
+    };
+    texture.loadFromImage(image);
+    previewSprite.setTexture(texture);
+    previewSprite.setPosition(previewScreen.getPosition());
+    previewSprite.setScale(baseSizeX, baseSizeY);
 
     checkbox.setSize(Vector2f(smallWidth/2, smallWidth/2));
     checkbox.setPosition(previewScreen.getPosition().x, previewScreen.getPosition().y + baseSizeY + smallWidth);
@@ -599,7 +603,6 @@ void saveImageAsCArray() {
 // Save å sånt klart
 
 // ### - Action - ### 
-
 void handleEvents() {
     Event event;
     while (window.pollEvent(event)) {
@@ -706,8 +709,10 @@ void handleMouseButtonPressedEvent(const Event& event) {
                 lineEnd = lineStart;
             } else if (menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
                 isMenuOpen = !isMenuOpen;
-            }
-            if (isDrawing && !isShiftKeyPressed) {
+            } else if (checkbox.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
+                outlineColorOnOff = !outlineColorOnOff;
+                create_preview();
+            } else if (isDrawing && !isShiftKeyPressed) {
                 handleDrawing(event);
             }
         }
@@ -782,30 +787,30 @@ void handleSaveButtonClick(const Event& event) {
     }
 }
 
+// Drawing behöver fortfarande justeras in på rätt ställe!
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
-    int scaleAdj = scale/selectedBrushSize;
-    int x = static_cast<int>((mousePos.x - 20) / scaleAdj);
-    int y = static_cast<int>((mousePos.y - 20) / scaleAdj);
-    
-    int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
-    int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
+    int x = ((mousePos.x)/scale);
+    int y = ((mousePos.y)/scale);
 
-    for (int i = x_nearest - selectedBrushSize / 2; i <= x_nearest + selectedBrushSize / 2; i += scaleAdj) {
-        for (int j = y_nearest - selectedBrushSize / 2; j <= y_nearest + selectedBrushSize / 2; j += scaleAdj) {
+    int x_nearest = (x / scale) * scale;
+    int y_nearest = (y / scale) * scale;
 
+    if (selectedBrushSize > brushSizeValueStart) {
+        x_nearest -= (selectedBrushSize / 2);
+        y_nearest -= (selectedBrushSize / 2);
+    }
+
+    for (int i = 0; i < selectedBrushSize; i++) {
+        for (int j = 0; j < selectedBrushSize; j++) {
             if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                if (isErasing) {
-                    image.setPixel(i, j, Color::Transparent);
-                } else {
-                    image.setPixel(i, j, penColor);
-                }
+                image.setPixel(x_nearest + i, y_nearest + j, penColor);
             } else {isDrawing = false;}
         }
+    }
     saveImageToHistory();
     texture.loadFromImage(image);
-    } 
-}
+}    
 
 void drawShiftLines(const Event& event) {
     if (isShiftKeyPressed) {
@@ -826,33 +831,27 @@ void drawShiftLines(const Event& event) {
                 int x = static_cast<int>(lineStartPointX + t * deltaX)-1;
                 int y = static_cast<int>(lineStartPointY + t * deltaY);
 
-                int x_nearest = (x + brushSizeValue / 2) / scale * scale;
-                int y_nearest = (y + brushSizeValue / 2) / scale * scale;
-
-                if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                    for (int i = x_nearest - brushSizeValue; i <= x_nearest + brushSizeValue; i += scale) {
-                        for (int j = y_nearest - brushSizeValue; j <= y_nearest + brushSizeValue; j += scale) {
-                            if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
-                                if (isErasing) {
-                                    image.setPixel(i+1, j, Color::Transparent);
-                                } else {
-                                    image.setPixel(i+1, j, penColor);
-                                }
-
-                
+                int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
+                int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
+// Just nu funkar bara den lilla penseln
+                for (int i = x_nearest - selectedBrushSize; i <= x_nearest + selectedBrushSize; i += scale) {
+                    for (int j = y_nearest - selectedBrushSize; j <= y_nearest + selectedBrushSize; j += scale) {
+                        if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+                            if (isErasing) {
+                                image.setPixel(i+1, j, Color::Transparent);
+                            } else {
+                                image.setPixel(i+1, j, penColor);
                             }
                         }
                     }
                 }
                 texture.loadFromImage(image);
-
             }
         }
         lineStart = Vector2f(-scale, -scale);
         lineEnd = Vector2f(-scale, -scale);
     }
 }
-
 
 // ### - Renderar allt till fönstret - ###
 void render() {
@@ -896,6 +895,8 @@ void render() {
     window.draw(brushSizeMed);
     window.draw(brushSizeMax);
 
+
+// Min brush får programmet att krasha! &#€%"%"!
 /*     // Jag måste skapa min visuella brush här nere för loopen...
         Vector2i mousePos = Mouse::getPosition(window);
         // Begränsar den till att synas inom spriten
@@ -963,6 +964,7 @@ void render() {
 
     sprite.setPosition(rulerSize, extraTopHeight); 
     window.draw(sprite);
+    window.draw(previewSprite);
     window.display();    
 }
 
