@@ -227,7 +227,7 @@ void create_dropDown() {
     menuLoadText.setFont(font);
     menuLoadText.setCharacterSize(12);
     menuLoadText.setFillColor(Color::Black);
-    menuLoadText.setString("Load");
+    menuLoadText.setString("Load - gahhh, tryck o istället");
     menuLoadText.setPosition(menuSize.y, (smallWidth * 2) + textSpacing);
 }
 
@@ -716,7 +716,7 @@ void handleMouseButtonPressedEvent(const Event& event) {
                 handleDrawing(event);
             }
         }
-        if (!menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
+        if (!menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window))) || !menuSaveText.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window))) || !menuLoadText.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
             isMenuOpen = false;
         }
         if (event.mouseButton.button == Mouse::Right || isErasing == true) {
@@ -782,7 +782,13 @@ void handleSaveButtonClick(const Event& event) {
             saveImageAsCArray();
             saveImageAsBMP();
             isMenuOpen = false;
-            
+        } else if (menuLoadText.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+            if (openAndLoadImage(image)) {
+                                sf::Texture texture;
+                                texture.loadFromImage(image);
+                                sf::Sprite sprite(texture);
+            }
+            isMenuOpen = false;
         }
     }
 }
