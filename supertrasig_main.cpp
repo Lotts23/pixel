@@ -562,7 +562,7 @@ void handleEvents() {
 
 void handleKeyPressedEvent(const Event& event) {
     if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
-     /*    isShiftKeyPressed = true;
+         isShiftKeyPressed = true;
         Vector2i mousePos = Mouse::getPosition(window);
         Vector2f spritePosition = sprite.getPosition();
         Vector2f mapMousePos = window.mapPixelToCoords(mousePos) - spritePosition;
@@ -572,7 +572,7 @@ void handleKeyPressedEvent(const Event& event) {
             lineStart.x = std::round(mapMousePos.x);
             lineStart.y = std::round(mapMousePos.y);
             lineEnd = lineStart;
-        } */
+        } 
     }
     if (event.key.code == Keyboard::X) {
     isErasing = true;
