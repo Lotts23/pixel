@@ -10,892 +10,228 @@
 #include <cmath>
 
 using namespace sf;
-namespace fs = std::filesystem;
+namespace fs = std::__fs::filesystem;
 
 class DrawingApp {
 public:
-    DrawingApp() : window(sf::VideoMode(initialSizeX, initialSizeY), "Pixel") {
+    DrawingApp() : window(VideoMode(initialSizeX, initialSizeY), "Pixel") {
     initialize();
     }
 
     void run() {
         while (window.isOpen()) {
-
-            handleEvents();
-
-            Time elapsedTime = clock.getElapsedTime();
-            if (elapsedTime.asSeconds() >= 0.1) {
-                
+            sf::Event event;
+            while (window.pollEvent(event)) {
+                if (event.type == sf::Event::Closed)
+                    window.close();
+            }
+            Time elapsedTime = frameClock.getElapsedTime();
+            if (elapsedTime.asSeconds() >= frameTime) {
                 render();
-                clock.restart();
+                frameClock.restart();
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-            if (isSaveButtonClicked) { 
-                Time elapsedTime = saveButtonClock.getElapsedTime();
-                if (elapsedTime.asSeconds() >= 1.0f) {
-                    isSaveButtonClicked = false;
-                    isMenuOpen = false;
-
-                    saveImageAsCArray();
-                    saveImageAsBMP();
-                }
             }
         }
     }
 
 private:
-    float scale = 8.0f;
-    int baseSizeX = 128;
-    int baseSizeY = 64;
-    int initialSizeX = (baseSizeX + scale*2 + (scale/2)) * scale;
-    int initialSizeY = (baseSizeY + scale*2 + (scale/2)) * scale;
+    const float scale = 8.0f;
+    const int baseSizeX = 128;
+    const int baseSizeY = 64;
+
+    Color bgColor = Color(85, 107, 47);
+    Color elementColor = Color(60, 60, 60);
+
+    int sizeX = (baseSizeX * static_cast<int>(scale));
+    int sizeY = (baseSizeY * static_cast<int>(scale));    
+    RectangleShape menuBar;
+    Text menuFile;
+    Font font;
+    Vector2f menuSize = Vector2f(sizeX + (scale*6), scale*3);
+    float rulerSize = menuSize.y * 2;
+    float textSpacing = scale;
+    float lineWidth = 1.0;
+    float extraHeight = menuSize.y + rulerSize + lineWidth;
+
+    int initialSizeX = sizeX + rulerSize;
+    int initialSizeY = sizeY + extraHeight;
     RenderWindow window;
+
     Image image;
     Texture texture;
     Sprite sprite;
-    RectangleShape topLine;
-    RectangleShape leftLine;
-    RectangleShape leftRuler;
+
     RectangleShape topRuler;
-    RectangleShape leftRulerPattern;
-    RectangleShape topRulerPattern;
-    Font font;
+    RectangleShape topLine;
+    RectangleShape leftRuler;
+    RectangleShape leftLine;
     Text leftRulerText;
     Text topRulerText;
-    Texture rulerPatternTexture;
-    RenderTexture renderTexture;
-
-    RectangleShape squareShapes[64];
-    RectangleShape squareShapesTop[128];
-
-    const int numSquares = std::extent<decltype(squareShapes)>::value;
-    const int numSquaresTop = std::extent<decltype(squareShapesTop)>::value;
-    const float squareSize = (scale);
-    int sizeX = initialSizeX - scale*2 + (scale/2);
-    int sizeY = initialSizeY - scale*2 + (scale/2);
-    int startPixelX;
-    int startPixelY;
-    RectangleShape menuBar;
-    RectangleShape dropDown;
-    Text menuFile;
-    Text menuText;
-    Text menuSaveText;
-    bool isMenuOpen;
-    bool isShiftKeyPressed;
-    RectangleShape menuBackground;
-    bool isSaveButtonClicked;
-    Clock saveButtonClock;
-
-    bool isDrawing;
-    bool isErasing;
-    bool isMousedown;
     std::vector<Text> leftRulerTexts;
     std::vector<Text> topRulerTexts;
-    Clock clock;
-    Vector2f lineStart;
-    Vector2f lineEnd;
-    Color bgColor;
-    std::vector<VertexArray> lines;
-    std::stack<sf::Image> imageHistory;
-    std::stack<sf::Image> redoHistory;
+    const float squareSize = scale;
+    RectangleShape squareShapes[64];
+    RectangleShape squareShapesTop[128];
+    const int numSquares = std::extent<decltype(squareShapes)>::value;
+    const int numSquaresTop = std::extent<decltype(squareShapesTop)>::value;
 
-    RectangleShape infoSpace;
-    Text infoSymbolErase;
-    RectangleShape brushSize;
-    RectangleShape brushSizeSmall;
-    RectangleShape brushSizeMed;
-    RectangleShape brushSizeMax;
-
-    Color penColor = Color::Black;
-    float brushSizeValueStart = 1.0;
-    float brushSizeValue = 1.0;
-    float brushSizeValueMed = 2.0;
-    float brushSizeValueMax = 4.0;
-    float t;
-    RectangleShape brush;
-    float selectedBrushSize;
-    RectangleShape pixel;
-
-    Vector2f liveLineStart;
-    Vector2f liveLineEnd;
-    bool isDrawingliveLine = false;
-    Vector2f lineStartPreview;
-    Vector2f lineEndPreview;
-
+    Clock frameClock;
+    const float frameTime = 0.1f;
+/* 
+    std::vector<RectangleShape> squareShapes; Jag hade velat ha dessa flexibla!
+    std::vector<RectangleShape> squareShapesTop;  
     
+    const int numSquares = sizeof(squareShapes) / sizeof(squareShapes[0]);
+    const int numSquaresTop = sizeof(squareShapesTop) / sizeof(squareShapesTop[0]);
+    */
+
+void initialize() {
+    image.create((sizeX), (sizeY), Color::Blue);
 
 
-    bool directoryExists(const std::string& path) {
-        struct stat info;
-        return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+    if (!font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf")) {
+        throw std::runtime_error("Unable to load font");
     }
 
-    void initialize() {
-        createLines();
-        createPatterns();
+    create_menuBar();
+    createRulers();
+    createText();
+    createTopSquareShapes();
+    createLeftSquareShapes();
 
-         if (!font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf")) {
-            throw std::runtime_error("Unable to load font");
-        }
-        sizeX = ((window.getSize().x)- ((scale*2 + (scale/2))*scale))/scale + 1;
-        sizeY = ((window.getSize().y)-((scale*2 + (scale/2))*scale))/scale + 1;
-
-
-
-        createText();
-        Color bgColor(85, 107, 47);
-        image.create((sizeX), (sizeY), Color::Transparent);
-
-        texture.loadFromImage(image);
-        sprite.setTexture(texture, true);
-        sprite.setScale(scale, scale);
-
-        createSquareShapes();
-        createTopSquareShapes();
-
-        create_menuBar();
-        create_dropDown();
-
-        create_infoSpace();
-        create_infoSymbols();
-        create_infoBrushes();
-        selectedBrushSize = brushSizeValueStart;
-        updateBrush();
-
-        isMenuOpen = false;
-        isShiftKeyPressed = false;
-
-        isDrawing = false;
-        isErasing = false;
-        lineStart = Vector2f(-scale, -scale);
-        lineEnd = Vector2f(-scale, -scale);
-        lineStartPreview = Vector2f(-scale, -scale);
-        lineEndPreview = Vector2f(-scale, -scale);
-
-        sf::RenderWindow window(sf::VideoMode(800, 600), "File Open Dialog");
-
-        clock.restart();
-    }
-
-    void create_menuBar() {
-        menuBar.setSize(Vector2f(static_cast<float>(window.getSize().x), scale*3));
-        menuBar.setFillColor(Color::White);
-        menuBar.setPosition(0, 0);
-
-        create_menuText();
-    }
-
-    void create_menuText() {
-        menuFile.setFont(font);
-        menuFile.setCharacterSize(12);
-        menuFile.setString("File");
-        menuFile.setPosition(scale*3, scale/4);
-        menuFile.setFillColor(Color::Black);
-    }
-
-    void create_dropDown() {
-        dropDown.setSize(Vector2f(scale*6, scale*3));
-        dropDown.setFillColor(Color::White);
-        dropDown.setPosition(scale*2 + (scale/2), scale*3);
-
-        menuSaveText.setFont(font);
-        menuSaveText.setCharacterSize(12);
-        menuSaveText.setFillColor(Color::Black);
-        menuSaveText.setString("Save");
-        menuSaveText.setPosition(scale*3, scale*3 + (scale/2));
-    }
-
-    void createLines() {
-        leftRuler.setSize(Vector2f(scale*3, scale*64));
-        leftRuler.setFillColor(Color::Transparent);
-        leftRuler.setPosition(0, (scale*11));
-
-        topRuler.setSize(Vector2f(scale*128, scale*3));
-        topRuler.setFillColor(Color::Transparent);
-        topRuler.setPosition((scale*6), 0);
-
-        topLine.setSize(Vector2f(scale*128, 1));
-        topLine.setFillColor(Color(60, 60, 60));
-        topLine.setPosition(scale*6, scale*11-1);
-
-        leftLine.setSize(Vector2f(1, scale*64));
-        leftLine.setFillColor(Color(60, 60, 60));
-        leftLine.setPosition(scale*6-1, scale*11);
-    }
-
-    void createPatterns() {
-        leftRulerPattern.setSize(Vector2f(scale*3, scale*64));
-        leftRulerPattern.setFillColor(Color::Transparent);
-
-        topRulerPattern.setSize(Vector2f(scale*128, scale*3));
-        topRulerPattern.setFillColor(Color::Transparent);
-    }
-
-    void createText() {
-        leftRulerText.setFont(font);
-        leftRulerText.setCharacterSize(12);
-        leftRulerText.setFillColor(Color::Black);
-
-        topRulerText.setFont(font);
-        topRulerText.setCharacterSize(12);
-        topRulerText.setFillColor(Color::Black);
-
-        for (int i = 0; i <= 64; i += scale) {
-            Text scaleText(std::to_string(i), font, 12);
-            scaleText.setFillColor(Color::Black);
-
-            scaleText.setPosition(2*scale, (scale*6)+scale + (i*scale) - (scale*2)+(scale*5));
-            leftRulerTexts.push_back(scaleText);
-        }
-        for (int i = 0; i <= 128; i += scale) {
-            Text scaleText(std::to_string(i), font, 12);
-            scaleText.setFillColor(Color::Black);
-
-            scaleText.setPosition((scale*6)+scale + (i*scale) - (scale*2), scale+(scale*5));
-            topRulerTexts.push_back(scaleText);
-        }
-    }
-
-    void createSquareShapes() {
-        for (int i = 0; i < numSquares; ++i) {
-            squareShapes[i].setSize(Vector2f(squareSize, squareSize));
-            if (i % 2 == 0) {
-                squareShapes[i].setFillColor(Color(60, 60, 60));
-            } else {
-                squareShapes[i].setFillColor(Color::Transparent);
-            }
-            squareShapes[i].setPosition((scale*5), ((scale*11) + (i * (squareSize)))-1);
-        }
-    }
-
-    void createTopSquareShapes() {
-        for (int i = 0; i < numSquaresTop; ++i) {
-            squareShapesTop[i].setSize(Vector2f(squareSize, squareSize));
-            if ((i - numSquares) % 2 == 0) {
-                squareShapesTop[i].setFillColor(Color(60, 60, 60));
-            } else {
-                squareShapesTop[i].setFillColor(Color::Transparent);
-            }
-            squareShapesTop[i].setPosition(((scale*6) + (i * (squareSize))) - 1, scale*10);
-        }
-    }
-
-    void create_infoSpace() {
-        infoSpace.setSize(Vector2f(scale*8, scale*16));
-        infoSpace.setPosition(static_cast<float>(window.getSize().x)-(scale*11), (scale*11));
-
-        infoSpace.setFillColor(Color::Transparent);
-    }
-
-    void create_infoSymbols() {
-        infoSymbolErase.setFont(font);
-        infoSymbolErase.setCharacterSize(16);
-        infoSymbolErase.setFillColor(Color::Black);
-        infoSymbolErase.setString("X");
-        infoSymbolErase.setPosition(infoSpace.getPosition().x + (scale*3), infoSpace.getPosition().y);
-    }
-
-    void create_infoBrushes() {
-        brushSize.setSize(Vector2f(scale*8, scale*32));
-        brushSize.setPosition(infoSpace.getPosition().x + (scale*3), infoSpace.getPosition().y);
-
-        brushSize.setFillColor(Color::Transparent);
-
-        brushSizeSmall.setSize(Vector2f(brushSizeValueStart*scale, brushSizeValueStart*scale));
-        brushSizeSmall.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + (scale*3) + scale);
-        brushSizeSmall.setFillColor(Color::Black);
-
-        brushSizeMed.setSize(Vector2f(brushSizeValueMed*scale, brushSizeValueMed*scale));
-        brushSizeMed.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + (scale*3) + scale * (scale/2));
-        brushSizeMed.setFillColor(Color::Black);
-
-        brushSizeMax.setSize(Vector2f(brushSizeValueMax*scale, brushSizeValueMax*scale));
-        brushSizeMax.setPosition(brushSize.getPosition().x, infoSpace.getPosition().y + (scale*3) + scale * scale);
-        brushSizeMax.setFillColor(Color::Black);
-    }
-
-bool openAndLoadImage(sf::Image& image) {
-    sf::RenderWindow fileDialog(sf::VideoMode(400, 300), "File Open Dialog");
-    fileDialog.setPosition(sf::Vector2i(100, 100));
-
-    sf::Font font;
-    font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf");
-
-    std::string folderPath = "./save";
-    std::vector<std::string> fileList;  
-    int selectedFileIndex = 0;  
-
-        
-    for (const auto& entry : fs::directory_iterator(folderPath)) {
-        if (entry.is_regular_file()) {
-            std::string filename = entry.path().filename().string();
-            if (filename.length() >= 4 && filename.substr(filename.length() - 4) == ".bmp") {
-                fileList.push_back(filename);
-            }
-        }
-    }
-
-    while (fileDialog.isOpen()) {
-        sf::Event event;
-        while (fileDialog.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                fileDialog.close();
-                return false;
-            }
-
-            if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Escape) {
-                    fileDialog.close();
-                    return false;
-                }
-                else if (event.key.code == sf::Keyboard::Up) {
-                    
-                    if (selectedFileIndex > 0) {
-                        selectedFileIndex--;
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::Down) {
-                    
-                    if (selectedFileIndex < fileList.size() - 1) {
-                        selectedFileIndex++;
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::Enter) {
-    
-    std::string selectedFile = folderPath + "/" + fileList[selectedFileIndex];
-
-    
-    sf::Image loadedImage;
-    if (loadedImage.loadFromFile(selectedFile)) {
-        
-
-        texture.loadFromImage(loadedImage);
-
-        
-        
-        window.display();
-
-        
-    }
-
-    fileDialog.close();
-    return true; 
+    frameClock.restart();
 }
 
-            }
-        }
+/*
+     Det här hade varit bättre sätt att ange storleken i initialize
+    RectangleShape squareShapes[baseSizeY];
+    RectangleShape squareShapesTop[baseSizeX];
+  */
+void create_menuBar() {
+    menuBar.setSize(menuSize);
+    menuBar.setFillColor(Color::White);
+    menuBar.setPosition(0, 0);
 
-        fileDialog.clear(sf::Color::White);
-
-        
-        int yOffset = 40;
-        for (size_t i = 0; i < fileList.size(); ++i) {
-            sf::Text fileText(fileList[i], font, 16);
-            fileText.setFillColor(sf::Color::Black);
-            fileText.setPosition(10, yOffset);
-            if (i == selectedFileIndex) {
-                
-                fileText.setFillColor(sf::Color::Red);
-            }
-            fileDialog.draw(fileText);
-            yOffset += 20;
-        }
-
-        fileDialog.display();
-    }
-
-    return false;
+    create_menuText();
 }
 
+void create_menuText() {
+    menuFile.setFont(font);
+    menuFile.setCharacterSize(12);
+    menuFile.setString("File");
+    menuFile.setPosition(menuSize.y, menuSize.y - textSpacing - menuFile.getCharacterSize());
+    menuFile.setFillColor(Color::Black);
+}
 
-    bool createDirectory(const std::string& path) {
-        if (!std::filesystem::exists(path)) {
-            int status = mkdir(path.c_str(), 0777);
-            if (status != 0) {
-                std::cerr << "Failed to create dracony: " << path << std::endl;
-                return false;
-            }
+void createRulers() {
+    topRuler.setSize(Vector2f(sizeX, rulerSize));
+    topRuler.setFillColor(Color::Transparent);
+    topRuler.setPosition(rulerSize, menuSize.y);
+
+    topLine.setSize(Vector2f(sizeX, lineWidth));
+    topLine.setFillColor(elementColor);
+    topLine.setPosition(rulerSize, extraHeight - lineWidth);
+
+    leftRuler.setSize(Vector2f(rulerSize, sizeY));
+    leftRuler.setFillColor(Color::Transparent);
+    leftRuler.setPosition(0, extraHeight);
+
+    leftLine.setSize(Vector2f(lineWidth, sizeY));
+    leftLine.setFillColor(elementColor);
+    leftLine.setPosition(rulerSize, extraHeight);
+}
+
+void createTopSquareShapes() { // En extra ruta till 0:an
+    int zeroBase = (baseSizeX + 2);
+    for (int i = 0; i < zeroBase; ++i) {
+        RectangleShape square;
+        square.setSize(Vector2f(squareSize, squareSize));
+        if ((i - baseSizeX) % 2 == 0) {
+            square.setFillColor(Color::Transparent);
+        } else {
+            square.setFillColor(elementColor);
         }
-        return true;
-    }
+        square.setPosition(rulerSize + (i * squareSize), extraHeight - squareSize - lineWidth);
+        squareShapesTop[i] = square;
+    } 
+}
 
-    std::string generateNextFileName(const std::string& folderPath, const std::string& baseName, const std::string& extension) {
-        int fileNumber = 0;
-        std::string filePath;
-
-        do { 
-            std::ostringstream oss;
-            oss << folderPath << "/" << baseName << "_" << std::setw(3) << std::setfill('0') << fileNumber << extension;
-            filePath = oss.str();
-            fileNumber++;
-        } while (std::filesystem::exists(filePath));
-
-        return filePath;
-    }
-
-    void saveImageAsBMP() {
-        if (!createDirectory("save")) {
-            return; 
+void createLeftSquareShapes() {
+    for (int i = 0; i < baseSizeY; ++i) {
+        RectangleShape square;
+        square.setSize(Vector2f(squareSize, squareSize));
+        if (i % 2 == 0) {
+            square.setFillColor(Color::Transparent);
+        } else {
+            square.setFillColor(elementColor);
         }
-
-        std::string fileName = generateNextFileName("save", "image", ".bmp"); 
-
-        if (!image.saveToFile(fileName)) {
-            std::cerr << "Failed to save the image as BMP: " << fileName << std::endl;
-        }
-    }
-
-    void saveImageAsCArray() { 
-        if (!createDirectory("save")) {
-            return; 
-        }
-
-        std::string fileName = generateNextFileName("save", "image_data", ".h");
-        std::ofstream file(fileName.c_str());
-
-        if (!file.is_open()) { 
-            std::cerr << "Failed to open file for saving C array: " << fileName << std::endl;
-            return;
-        }
-
-        file << "#pragma once" << std::endl; 
-        file << "const unsigned char imageData[] = {" << std::endl; 
-        for (int y = 0; y < 64; ++y) {
-            for (int x = 0; x < 128; ++x) {
-                bool isBlack = (x % 2 == 0 && y % 2 == 0); 
-                if (isBlack) {
-                    file << "1, ";
-                } else {
-                    file << "0, ";
-                }
-            }
-        }
-        file << "};" << std::endl;
-
-        file.close();
-    }
-
-    void drawGridLines(RenderWindow& window) {
-        Color gridColor2(80, 100, 40, 150);
-
-        for (int x = (scale * 6); x <= (scale * 134); x += scale) {
-            VertexArray line2(Lines, 2);
-            line2[0].position = Vector2f(static_cast<float>(x), scale * 11);
-            line2[1].position = Vector2f(static_cast<float>(x), (64 + 11) * scale);
-            line2[0].color = gridColor2;
-            line2[1].color = gridColor2;
-            window.draw(line2);
-        }
-
-        for (int y = (scale * 6); y <= scale * (64 + 6); y += scale) {
-            VertexArray line2(Lines, 2);
-            line2[0].position = Vector2f(scale * 6, static_cast<float>(y + (scale * 5)));
-            line2[1].position = Vector2f(scale * (128 + 6), static_cast<float>(y + (scale * 5)));
-            line2[0].color = gridColor2;
-            line2[1].color = gridColor2;
-            window.draw(line2);
-        }
-        Color gridColor(90, 110, 70);
-
-        for (int x = (scale * 6); x <= scale * (128 + 6); x += scale * 8) {
-            VertexArray line(Lines, 2);
-            line[0].position = Vector2f(x, (scale * 6) + (scale * 5));
-            line[1].position = Vector2f(x, (scale * 64) + (scale * 6) + (scale * 5));
-            line[0].color = gridColor;
-            line[1].color = gridColor;
-            window.draw(line);
-        }
-
-        for (int y = (scale * 6); y <= scale * (64 + 6); y += scale * 8) {
-            VertexArray line(Lines, 2);
-            line[0].position = Vector2f((scale * 6), y + (scale * 5));
-            line[1].position = Vector2f((scale * 128) + (scale * 6), y + (scale * 5));
-            line[0].color = gridColor;
-            line[1].color = gridColor;
-            window.draw(line);
-        }
-    }
-
-void saveImageToHistory() {
-    imageHistory.push(image);
-    while (!redoHistory.empty()) {
-        redoHistory.pop();
+        square.setPosition(rulerSize - squareSize, extraHeight + (i * squareSize));
+        squareShapes[i] = square;
     }
 }
 
-void undo() {
-    if (!imageHistory.empty()) {
-        redoHistory.push(imageHistory.top()); 
-        imageHistory.pop(); 
-        if (!imageHistory.empty()) {
-            image = imageHistory.top(); 
-            texture.loadFromImage(image);
+void createText() {
+    topRulerText.setFont(font);
+    topRulerText.setCharacterSize(12);
+    topRulerText.setFillColor(Color::Black);
+
+    leftRulerText.setFont(font);
+    leftRulerText.setCharacterSize(12);
+    leftRulerText.setFillColor(Color::Black);
+
+    for (int i = 8; i <= baseSizeX; i += 8) {
+        Text rulerText(std::to_string(i), font, 12);
+        rulerText.setFillColor(Color::Black);
+        if (i <= 9) { // vänsterkantens linjalbredd + värdet * rutstorlek - centrera över rutan - första rutan 1
+            rulerText.setPosition(rulerSize + (i * squareSize) - squareSize, rulerSize - lineWidth);
+        } else if (i >= 10 && i <= 99) {
+            rulerText.setPosition(rulerSize + (i * squareSize) - (squareSize/2) - squareSize, rulerSize - lineWidth);
+        } else {
+            rulerText.setPosition(rulerSize + (i * squareSize) - squareSize - squareSize, rulerSize - lineWidth);
         }
+        topRulerTexts.push_back(rulerText);
     }
-}
-
-void redo() {
-    if (!redoHistory.empty()) {
-        imageHistory.push(image); 
-        image = redoHistory.top(); 
-        redoHistory.pop(); 
-        texture.loadFromImage(image);
-    }
-}
-
-void handleEvents() {
-    Event event;
-    while (window.pollEvent(event)) {
-        switch (event.type) {
-            case Event::Closed:
-                window.close();
-                break;
-
-            case Event::KeyPressed:
-                handleKeyPressedEvent(event);
-                break;
-
-            case Event::KeyReleased:
-                handleKeyReleasedEvent(event);
-                break;
-
-            case Event::MouseButtonPressed:
-                handleMouseButtonPressedEvent(event);
-                break;
-
-            case Event::MouseButtonReleased:
-                handleMouseButtonReleasedEvent(event);
-                break;
-
-            case Event::MouseMoved:
-                handleMouseMovedEvent(event);
-                break;
-
-            default:
-                break;
+    for (int i = 8; i <= baseSizeY; i += 8) {
+        Text rulerText(std::to_string(i), font, 12);
+        rulerText.setFillColor(Color::Black);
+        if (i <= 9) { // 6 är fontstorleken/2
+        rulerText.setPosition(rulerSize / 2 + 6, extraHeight - 12 + (i * squareSize));
+        } else {
+        rulerText.setPosition(rulerSize / 2, extraHeight - 12 + (i * squareSize));
         }
+        leftRulerTexts.push_back(rulerText);
     }
 }
 
-void handleKeyPressedEvent(const Event& event) {
-    if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
-        isShiftKeyPressed = true;
-        Vector2i mousePos = Mouse::getPosition(window);
-        lineStartPreview = Vector2f(mousePos.x, mousePos.y);
-        lineEndPreview = lineStartPreview;
-        if (isDrawing) {
-            Vector2i mousePos = Mouse::getPosition(window);
-            lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-            lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-            lineStartPreview = Vector2f(mousePos.x, mousePos.y);
-            lineEndPreview = lineStartPreview;
-            lineEnd = lineStart;
-        }
-    }
-    if (event.key.code == Keyboard::X) {
-    isErasing = true;
-    }
-    if (event.key.code == Keyboard::Num1) {
-        selectedBrushSize = brushSizeValueStart;
-        updateBrush();
-    }
-    if (event.key.code == Keyboard::Num2) {
-        selectedBrushSize = brushSizeValueMed;
-        updateBrush();
-    }
-    if (event.key.code == Keyboard::Num3) {
-        selectedBrushSize = brushSizeValueMax;
-        updateBrush();
-    }
-    if (event.key.code == Keyboard::Z && (event.key.control || event.key.system) && !(Keyboard::isKeyPressed(Keyboard::LShift) || Keyboard::isKeyPressed(Keyboard::RShift))) {
-        undo();
-    }
-    if (event.key.code == Keyboard::Z && (event.key.control || event.key.system) && Keyboard::isKeyPressed(Keyboard::LShift)) {
-        redo();
-    }
-    if (event.key.code == sf::Keyboard::O || event.key.code == sf::Keyboard::L) {
-        if (openAndLoadImage(image)) {
-                            sf::Texture texture;
-                            texture.loadFromImage(image);
-                            sf::Sprite sprite(texture);
-        }
-    }
-}
-
-void handleKeyReleasedEvent(const Event& event) {
-    if (event.key.code == Keyboard::LShift || event.key.code == Keyboard::RShift) {
-        isShiftKeyPressed = false;
-        pixel.setPosition(Vector2f(-scale, -scale));
-        pixel.setFillColor(Color::Transparent);
-        
-    }
-}
-
-void handleMouseButtonPressedEvent(const Event& event) {
-    if (event.mouseButton.button == Mouse::Left || event.mouseButton.button == Mouse::Right) {
-        isMousedown = true;
-
-        if (event.mouseButton.button == Mouse::Left) {
-            Vector2i mousePos = Mouse::getPosition(window);
-            lineStartPreview = Vector2f(mousePos.x, mousePos.y);
-            lineEndPreview = lineStartPreview;
-            isDrawing = true;
-            if (isShiftKeyPressed) {
-                Vector2i mousePos = Mouse::getPosition(window);
-                lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-                lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-                lineStartPreview = Vector2f(lineStart.x, lineStart.y);
-                lineEndPreview = lineStartPreview;
-                lineEnd = lineStart;
-            } else if (menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
-                isMenuOpen = !isMenuOpen;
-            }
-            if (isDrawing && !isShiftKeyPressed) {
-                handleDrawing(event);
-            }
-        }
-        if (!menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
-            isMenuOpen = false;
-        }
-        if (event.mouseButton.button == Mouse::Right || isErasing == true) {
-            isErasing = true;
-            handleDrawing(event);
-        }
-        handleBrushSizeClick(event);
-    }
-}
-
-void handleMouseMovedEvent(const Event& event) {
-    if (isDrawing && !isShiftKeyPressed) {
-        handleDrawing(event);
-    }
-
-    if (isMousedown && isShiftKeyPressed) {
-        Vector2i mousePos = Mouse::getPosition(window);
-        lineEndPreview = Vector2f(event.mouseMove.x, event.mouseMove.y);
-    }
-}
-
-void handleMouseButtonReleasedEvent(const Event& event) {
-    isDrawing = false;
-    isErasing = false;
-    isMousedown = false;
-
-    if (isShiftKeyPressed) {
-        Vector2i mousePos = Mouse::getPosition(window);
-        lineEnd.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-        lineEnd.y = std::round((mousePos.y - 20) / scale) * scale + 20;
-        
-        drawShiftLines(event);
-        pixel.setPosition(Vector2f(-scale, -scale));
-        pixel.setFillColor(Color::Transparent);
-        isShiftKeyPressed = false;
-        
-    } else {
-        handleSaveButtonClick(event);
-    }
-}
-
-void handleBrushSizeClick(const Event& event) {
-    if (event.mouseButton.button == Mouse::Left) {
-        Vector2i mousePos = Mouse::getPosition(window);
-        if (brushSizeSmall.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-            isDrawing = false;
-            selectedBrushSize = brushSizeValueStart;
-            updateBrush();
-        } else if (brushSizeMed.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-            isDrawing = false;
-            selectedBrushSize = brushSizeValueMed;
-            updateBrush();
-        } else if (brushSizeMax.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-            isDrawing = false;
-            selectedBrushSize = brushSizeValueMax;
-            updateBrush();
-        }
-    }
-}
-
-void handleSaveButtonClick(const Event& event) {
-    if (event.mouseButton.button == Mouse::Left) {
-        Vector2i mousePos = Mouse::getPosition(window);
-        if (menuSaveText.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-            saveImageAsCArray();
-            saveImageAsBMP();
-            isMenuOpen = false;
-            
-        }
-    }
-}
-
-void handleDrawing(const Event& event) {
-    Vector2i mousePos = Mouse::getPosition(window);
-    int scaleAdj = scale*scale;
-    int x = ((mousePos.x) / scale) - (scale);
-    int y = ((mousePos.y) / scale) - (scale);
-
-    int x_nearest = ((x + selectedBrushSize / 2)/scale)*scale;
-    int y_nearest = ((y + selectedBrushSize / 2)/scale)*scale;
-
-    for (int i = x_nearest - selectedBrushSize / scaleAdj; i <= x_nearest + selectedBrushSize / 4; i++) {
-        
-        for (int j = y_nearest - selectedBrushSize / scaleAdj; j <= y_nearest + selectedBrushSize / 4; j++) {
-
-            if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
-
-                if (isErasing) {
-                    image.setPixel(i, j, Color::Transparent);
-                } else {
-                    image.setPixel(i, j, penColor);
-                }
-            }
-        }
-        saveImageToHistory();
-        texture.loadFromImage(image);
-    }
-}
-
-
-void drawShiftLines(const Event& event) {
-    if (isShiftKeyPressed) {
-        isDrawing = false;
-
-        int startPixelX = (static_cast<int>((lineStart.x) / scale))-(scale-(scale/4));
-        int startPixelY = (static_cast<int>((lineStart.y) / scale))-(scale+(scale/4));
-        int endPixelX = (static_cast<int>((lineEnd.x) / scale))-(scale-(scale/4));
-        int endPixelY = (static_cast<int>((lineEnd.y) / scale))-(scale+(scale/4));
-
-        if (startPixelX != endPixelX || startPixelY != endPixelY) {
-            float deltaX = static_cast<float>(endPixelX - startPixelX);
-            float deltaY = static_cast<float>(endPixelY - startPixelY);
-            float steps = std::max(std::abs(deltaX), std::abs(deltaY));
-
-            for (float t = 0.0f; t <= 1.0f; t += 1.0f / steps) {
-                int x = static_cast<int>(startPixelX + t * deltaX);
-                int y = static_cast<int>(startPixelY + t * deltaY);
-
-                int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
-                int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
-
-                if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
-                    for (int i = x_nearest - selectedBrushSize; i <= x_nearest + selectedBrushSize; i += scale) {
-                        for (int j = y_nearest - selectedBrushSize; j <= y_nearest + selectedBrushSize; j += scale) {
-                            if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
-                                if (isErasing) {
-                                    image.setPixel(i+1, j, Color::Transparent);
-                                } else {
-                                    image.setPixel(i+1, j, penColor);
-                                }                
-                            }
-                        }
-                    }
-                }
-                saveImageToHistory();
-                texture.loadFromImage(image);
-            }
-        }
-        lineStart = Vector2f(-scale, -scale);
-        lineEnd = Vector2f(-scale, -scale);
-    }
-}
-
-void updateBrush() {
-    brush.setSize(Vector2f(scale*selectedBrushSize, scale*selectedBrushSize));
-    brush.setOrigin((brush.getSize().x + selectedBrushSize) / 2, (brush.getSize().y + selectedBrushSize) / 2);
-}
-
+// #########
 void render() {
-    renderTexture.clear(Color(85, 107, 47));
-    window.clear(Color(85, 107, 47));
+    window.clear(Color(bgColor));
     window.draw(menuBar);
     window.draw(menuFile);
-    window.draw(topRulerPattern);
-    window.draw(leftRulerPattern);
-
-    drawGridLines(window);
-    window.draw(topLine);
-    window.draw(leftLine);
-    sprite.setPosition((scale * 6), (scale * 11)); 
-    window.draw(sprite);
-    window.draw(leftRuler);
-    window.draw(topRuler);
-    window.draw(leftRulerText);
-    window.draw(topRulerText);
-
-    for (int i = 0; i < numSquares; ++i) {
-        window.draw(squareShapes[i]);
-    }
-
-    for (int i = 0; i < numSquaresTop; ++i) {
-        window.draw(squareShapesTop[i]);
-    }
-
-    Vector2i mousePos = Mouse::getPosition(window);
-    int x_nearest = (static_cast<int>((mousePos.x - 20 - 20) / scale) * scale) + 20 + 20 + (scale / 1);
-    int y_nearest = (static_cast<int>((mousePos.y - 20) / scale) * scale) + 20 + (scale / 2);
-
-    if (mousePos.x >= 48 && mousePos.x < (sizeX*scale)+40 && mousePos.y >= 94 && mousePos.y < (sizeY*scale)+80) {
-        brush.setPosition(static_cast<float>(x_nearest), static_cast<float>(y_nearest));
-        brush.setFillColor(Color(150, 150, 150, 200));
-        window.draw(brush);
-    }
 
     for (const Text& text : leftRulerTexts) {
         window.draw(text);
     }
-
     for (const Text& text : topRulerTexts) {
         window.draw(text);
     }
-
-    if (isMenuOpen) {
-        window.draw(dropDown);
-        window.draw(menuSaveText);
+    for (int i = 0; i < numSquaresTop; ++i) {
+        window.draw(squareShapesTop[i]);
+    } 
+    for (int i = 0; i < numSquares; ++i) {
+        window.draw(squareShapes[i]);
     }
+    window.draw(topLine);
+    window.draw(leftLine);
+    window.draw(topRuler);
+    window.draw(leftRuler);
+    window.draw(leftRulerText);
+    window.draw(topRulerText);
 
-    window.draw(infoSpace);
-    window.draw(brushSize);
-    window.draw(brushSizeSmall);
-    window.draw(brushSizeMed);
-    window.draw(brushSizeMax);
-
-    if (isErasing) {
-        window.draw(infoSymbolErase);
-    }
-
-    RectangleShape pixel(Vector2f(scale, scale));
-    if (isShiftKeyPressed) {
-
-        int startPixelX = static_cast<int>(lineStartPreview.x / scale);
-        int startPixelY = static_cast<int>(lineStartPreview.y / scale);
-        int endPixelX = static_cast<int>(lineEndPreview.x / scale);
-        int endPixelY = static_cast<int>(lineEndPreview.y / scale);
-
-        if (startPixelX != endPixelX || startPixelY != endPixelY) {
-            float deltaX = static_cast<float>(endPixelX - startPixelX);
-            float deltaY = static_cast<float>(endPixelY - startPixelY);
-            float steps = std::max(std::abs(deltaX), std::abs(deltaY)) * scale;
-
-            for (float t = 0.0f; t <= 1.0f; t += scale / steps) {
-                int x = static_cast<int>(startPixelX + t * deltaX);
-                int y = static_cast<int>(startPixelY + t * deltaY);
-
-                int x_nearest = (static_cast<int>(x));
-                int y_nearest = (static_cast<int>(y));
-
-                if (x >= 0 && x < initialSizeX && y >= 0 && y < initialSizeY) {
-
-                    pixel.setPosition(Vector2f(x_nearest*scale, y_nearest*scale));
-                    pixel.setFillColor(Color(penColor));
-                    window.draw(pixel);
-                }
-            }
-        }
-    }
-    pixel.setPosition(Vector2f(-scale, -scale)); 
-    pixel.setFillColor(Color::Transparent);
-
-    window.display();
+    sprite.setPosition(rulerSize, extraHeight); 
+    window.draw(sprite);
+    window.display();    
 }
 
 };
