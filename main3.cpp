@@ -125,12 +125,15 @@ private:
     bool isErasing = false;
 
     float brushSizeValueStart = brushSizeValueSmall;
-    float selectedBrushSize = brushSizeValueStart;
-    float brushSizeValue = selectedBrushSize;
-    RectangleShape brushSize;
+    float selectedBrushSize = brushSizeValueStart;    
+
     RectangleShape brushSizeSmall;
     RectangleShape brushSizeMed;
     RectangleShape brushSizeMax;
+    
+
+    float brushSizeValue = selectedBrushSize;
+    RectangleShape brushSize;
     RectangleShape brush;
 
     bool isShiftKeyPressed = false;
@@ -153,7 +156,6 @@ private:
     */
 
 void initialize() {
-
 
     create_menuBar();
         if (!font.loadFromFile("/System/Library/Fonts/Supplemental/Courier New.ttf")) {
@@ -744,8 +746,6 @@ void handleMouseButtonReleasedEvent(const Event& event) {
         drawShiftLines(event);
         preview.setPosition(Vector2f(-scale, -scale));
         preview.setFillColor(Color::Transparent);
-        isShiftKeyPressed = false;
-        
     } else {
         handleSaveButtonClick(event);
     }
@@ -785,13 +785,11 @@ void handleSaveButtonClick(const Event& event) {
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
     int scaleAdj = scale/selectedBrushSize;
-    int x = (mousePos.x - 20 - 20) / scaleAdj;
-    int y = ((mousePos.y - 20) / scaleAdj) - scaleAdj;
+    int x = static_cast<int>((mousePos.x - 20) / scaleAdj);
+    int y = static_cast<int>((mousePos.y - 20) / scaleAdj);
     
     int x_nearest = (x + selectedBrushSize / 2) / scale * scale;
     int y_nearest = (y + selectedBrushSize / 2) / scale * scale;
-
-   
 
     for (int i = x_nearest - selectedBrushSize / 2; i <= x_nearest + selectedBrushSize / 2; i += scaleAdj) {
         for (int j = y_nearest - selectedBrushSize / 2; j <= y_nearest + selectedBrushSize / 2; j += scaleAdj) {
@@ -812,6 +810,7 @@ void handleDrawing(const Event& event) {
 void drawShiftLines(const Event& event) {
     if (isShiftKeyPressed) {
         isDrawing = false;
+        Vector2i mousePos = Mouse::getPosition(window);
 // Alltså det här är en jäkla röra nu, men det funkar. Försök i ANNAN fil att förenkla, inte här
         int lineStartPointX = (static_cast<int>((lineStart.x) / scale))-(scale-(scale/4));
         int lineStartPointY = (static_cast<int>((lineStart.y) / scale))-(scale+(scale/4));
@@ -830,7 +829,7 @@ void drawShiftLines(const Event& event) {
                 int x_nearest = (x + brushSizeValue / 2) / scale * scale;
                 int y_nearest = (y + brushSizeValue / 2) / scale * scale;
 
-                if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) {
+                if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
                     for (int i = x_nearest - brushSizeValue; i <= x_nearest + brushSizeValue; i += scale) {
                         for (int j = y_nearest - brushSizeValue; j <= y_nearest + brushSizeValue; j += scale) {
                             if (i >= 0 && i < sizeX && j >= 0 && j < sizeY) {
@@ -897,7 +896,26 @@ void render() {
     window.draw(brushSizeMed);
     window.draw(brushSizeMax);
 
+/*     // Jag måste skapa min visuella brush här nere för loopen...
+        Vector2i mousePos = Mouse::getPosition(window);
+        // Begränsar den till att synas inom spriten
+        Vector2f spritePosition = sprite.getPosition();
+        FloatRect spriteBounds = sprite.getGlobalBounds();
+        float brushSizeValue = selectedBrushSize * scale;
 
+        int scaleSq = scale; // Passar in den i rutnätet
+        int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq));
+        int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq));
+        int brushSizeHalf = std::max(static_cast<float>(brushSizeValue/2), brushSizeValueStart);
+
+        if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+            brush.setSize(Vector2f(brushSizeValue, brushSizeValue));
+            brush.setPosition(static_cast<int>(x_nearest) + brushSizeHalf, static_cast<int>(y_nearest) + brushSizeHalf);
+            brush.setFillColor(mutedWhite);
+        }
+    // Borste slut
+    window.draw(brush); */
+    updateBrush();
 
     if (isErasing) {
         window.draw(infoSymbolErase);
