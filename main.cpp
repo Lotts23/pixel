@@ -807,13 +807,13 @@ void handleSaveButtonClick(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
           
     int scaleSq = scale; // Passar in den i rutnätet
-    int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq))/scale;
-    int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq))/scale;
+    int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq))/scale - scale+2;
+    int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq))/scale - scale+1;
 
     for (int i = 0; i < selectedBrushSize; i++) {
             for (int j = 0; j < selectedBrushSize; j++) {
                 if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                    image.setPixel(x_nearest-selectedBrushSize + i, y_nearest-selectedBrushSize + j, penColor);
+                    image.setPixel(x_nearest-(selectedBrushSize) + i, y_nearest-(selectedBrushSize+2) + j, penColor);
                 } else {isDrawing = false;}
             }
         }
@@ -826,10 +826,10 @@ void drawShiftLines(const Event& event) {
         isDrawing = false;
         Vector2i mousePos = Mouse::getPosition(window);
 
-        int lineStartPointX = static_cast<int>(lineStart.x / scale);
-        int lineStartPointY = static_cast<int>(lineStart.y / scale);
-        int lineEndPointX = static_cast<int>(lineEnd.x / scale);
-        int lineEndPointY = static_cast<int>(lineEnd.y / scale);
+        int lineStartPointX = static_cast<int>(lineStart.x / scale) - scale;
+        int lineStartPointY = static_cast<int>(lineStart.y / scale) - scale;
+        int lineEndPointX = static_cast<int>(lineEnd.x / scale) - scale;
+        int lineEndPointY = static_cast<int>(lineEnd.y / scale) - scale;
 
         if (lineStartPointX != lineEndPointX || lineStartPointY != lineEndPointY) {
             float deltaX = static_cast<float>(lineEndPointX - lineStartPointX);
@@ -837,20 +837,22 @@ void drawShiftLines(const Event& event) {
             float steps = std::max(std::abs(deltaX), std::abs(deltaY)) * scale;
 
             for (float t = 0.0f; t <= 1.0f; t += scale / steps) {
-                int x = static_cast<int>(lineStartPointX + t * deltaX);
-                int y = static_cast<int>(lineStartPointY + t * deltaY);
+                int x = static_cast<int>(lineStartPointX + t * deltaX) - selectedBrushSize;
+                int y = static_cast<int>(lineStartPointY + t * deltaY) - selectedBrushSize;
 
-                int x_nearest = (static_cast<int>(x));
-                int y_nearest = (static_cast<int>(y));
+                int x_nearest = (static_cast<int>(x))+2;
+                int y_nearest = (static_cast<int>(y))-1;
                 float lineBrushSize = static_cast<float>((selectedBrushSize-1)/2);
 
                 for (int i = x_nearest - lineBrushSize; i <= x_nearest + lineBrushSize; i += 1) {
                     for (int j = y_nearest - lineBrushSize; j <= y_nearest + lineBrushSize; j += 1) {
                         if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                            if (isErasing) {
-                                image.setPixel(i, j, Color::Transparent);
-                            } else {
-                                image.setPixel(i, j, penColor);
+                            if (i >= 0 && i < sprite.getTextureRect().width && j >= 0 && j < sprite.getTextureRect().height) {
+                                if (isErasing) {
+                                    image.setPixel(i, j, Color::Transparent);
+                                } else {
+                                    image.setPixel(i, j, penColor);
+                                }
                             }
                         }
                     }
@@ -969,6 +971,7 @@ void render() {
 // previewlinjer för shiftline
     RectangleShape preview(Vector2f(scale, scale));
     if (isShiftKeyPressed) {
+        float brushSizeValue = selectedBrushSize * scale;
 
         int lineStartPointX = static_cast<int>(lineStartPreview.x / scale);
         int lineStartPointY = static_cast<int>(lineStartPreview.y / scale);
@@ -981,23 +984,22 @@ void render() {
             float steps = std::max(std::abs(deltaX), std::abs(deltaY)) * scale;
 
             for (float t = 0.0f; t <= 1.0f; t += scale / steps) {
-                int x = static_cast<int>(lineStartPointX + t * deltaX)*scale;
-                int y = static_cast<int>(lineStartPointY + t * deltaY)*scale;
+                int x = (static_cast<int>(lineStartPointX + t * deltaX)*scale)-selectedBrushSize;
+                int y = (static_cast<int>(lineStartPointY + t * deltaY)*scale)-selectedBrushSize;
 
-                int x_nearest = (((static_cast<int>(x))/scale)*scale)-(selectedBrushSize);
-                int y_nearest = (((static_cast<int>(y))/scale)*scale)-(selectedBrushSize);
+                int x_nearest = (((static_cast<int>(x))/scale)*scale)-(brushSizeValue)+selectedBrushSize;
+                int y_nearest = (((static_cast<int>(y))/scale)*scale)-(brushSizeValue)+selectedBrushSize;
 
-
-                float lineBrushSize = static_cast<float>((selectedBrushSize)/2);
+                float lineBrushSize = static_cast<float>((selectedBrushSize-1)/2)*scale;
 
                 for (int i = x_nearest - lineBrushSize; i <= x_nearest + lineBrushSize; i += 1) {
                     for (int j = y_nearest - lineBrushSize; j <= y_nearest + lineBrushSize; j += 1) {
                         if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-
                             preview.setPosition(Vector2f(i, j));
                             preview.setFillColor(Color(penColor));
                             window.draw(preview);
-                    }   }
+                        }
+                    }
                 }
             }
         }
