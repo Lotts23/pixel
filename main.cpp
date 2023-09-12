@@ -813,7 +813,11 @@ void handleSaveButtonClick(const Event& event) {
     for (int i = 0; i < selectedBrushSize; i++) {
             for (int j = 0; j < selectedBrushSize; j++) {
                 if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                    image.setPixel(x_nearest-(selectedBrushSize) + i, y_nearest-(selectedBrushSize+2) + j, penColor);
+                    if (isErasing) {
+                        image.setPixel(x_nearest-(selectedBrushSize) + i, y_nearest-(selectedBrushSize+2) + j, Color::Transparent);
+                    } else {
+                        image.setPixel(x_nearest-(selectedBrushSize) + i, y_nearest-(selectedBrushSize+2) + j, penColor);
+                    }
                 } else {isDrawing = false;}
             }
         }
