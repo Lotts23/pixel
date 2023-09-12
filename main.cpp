@@ -230,7 +230,7 @@ void create_dropDown() {
     menuLoadText.setFont(font);
     menuLoadText.setCharacterSize(12);
     menuLoadText.setFillColor(Color::Black);
-    menuLoadText.setString("Load - gahhh, tryck o istället");
+    menuLoadText.setString("Load");
     menuLoadText.setPosition(menuSize.y, (smallWidth * 2) + textSpacing);
 }
 
@@ -425,7 +425,7 @@ void create_infoBrushes() {
 
 void updateBrush() {
     brush.setSize(Vector2f(selectedBrushSize, selectedBrushSize));
-    brush.setOrigin(brush.getSize().x, brush.getSize().y);
+    brush.setOrigin(selectedBrushSize, selectedBrushSize);
 }
 // Nu har vi skapat alla element
 
@@ -678,10 +678,19 @@ void handleKeyPressedEvent(const Event& event) {
     }
     if (event.key.code == sf::Keyboard::O || event.key.code == sf::Keyboard::L) {
         if (openAndLoadImage(image)) {
-                            sf::Texture texture;
+                            Texture texture;
                             texture.loadFromImage(image);
-                            sf::Sprite sprite(texture);
+                            Sprite sprite(texture);
         }
+    }
+    if (event.key.code == Keyboard::Q && (event.key.control || event.key.system)) {
+        
+/*  Hitta nåt sätt att göra det här! och lista ut vilka tangenter som är bäst. Och, ska det vara en varning?
+    Image image;
+    image.create((baseSizeX), (baseSizeY), Color::Transparent);
+    Texture texture;
+    texture.loadFromImage(image); */
+
     }
 }
 
@@ -906,7 +915,7 @@ void render() {
 
 
 // Min brush får programmet att krasha! &#€%"%"!
-/*     // Jag måste skapa min visuella brush här nere för loopen...
+    // Jag måste skapa min visuella brush här nere för loopen...
         Vector2i mousePos = Mouse::getPosition(window);
         // Begränsar den till att synas inom spriten
         Vector2f spritePosition = sprite.getPosition();
@@ -924,7 +933,7 @@ void render() {
             brush.setFillColor(mutedWhite);
         }
     // Borste slut
-    window.draw(brush); */
+    window.draw(brush); 
     updateBrush();
 
     if (isErasing) {
