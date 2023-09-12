@@ -29,7 +29,7 @@ public:
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
-          /*  if (isSaveButtonClicked) { 
+            if (isSaveButtonClicked) { 
                 Time elapsedTime = saveButtonClock.getElapsedTime();
                 if (elapsedTime.asSeconds() >= 1.0f) {
                     isSaveButtonClicked = false;
@@ -38,7 +38,7 @@ public:
                     saveImageAsCArray();
                     saveImageAsBMP();
                 }
-            } */
+            } 
         }
     }
 
@@ -87,6 +87,9 @@ private:
     Text menuSaveText;
     Text menuLoadText;
     bool isMenuOpen = false;
+
+    bool isSaveButtonClicked;
+    Clock saveButtonClock;
 
     RenderWindow window;
 
@@ -716,7 +719,7 @@ void handleMouseButtonPressedEvent(const Event& event) {
                 handleDrawing(event);
             }
         }
-        if (!menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window))) || !menuSaveText.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window))) || !menuLoadText.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {
+        if (!menuFile.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))) {// || !menuSaveText.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window))) || !menuLoadText.getGlobalBounds().contains(static_cast<Vector2f>(Mouse::getPosition(window)))
             isMenuOpen = false;
         }
         if (event.mouseButton.button == Mouse::Right || isErasing == true) {
