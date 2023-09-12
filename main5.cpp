@@ -168,7 +168,7 @@ void initialize() {
         createRulerText();
         createTopSquareShapes();
         createLeftSquareShapes();
-        create_preview();
+
         create_infoSpace();
         create_infoSymbols();
         create_infoBrushes();
@@ -186,8 +186,9 @@ void initialize() {
         texture.loadFromImage(image);
         sprite.setTexture(texture, true);
         sprite.setScale(scale, scale);
+             create_preview();
         previewScreen.setTexture(&texture);
-
+        
     frameClock.restart();
 /*
      Det här hade varit bättre sätt att ange storleken i initialize
