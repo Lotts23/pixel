@@ -5,7 +5,7 @@ project(rita)
 find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system)
 
 set(SOURCES
-    main.cpp 
+    main5.cpp 
     #savefunk.cpp
     #savefunk.h
     #drawfunk.cpp
