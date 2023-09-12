@@ -52,6 +52,7 @@ private:
 
     Color bgColor = Color(85, 107, 47);
     Color elementColor = Color(60, 60, 60);
+    Color elementColorAlfa = Color(60, 60, 60, 150);
     Color mutedWhite = Color(150, 150, 150, 200);
 
     Color gridColor2 = Color(90, 110, 70);
@@ -61,7 +62,7 @@ private:
 
     float brushSizeValueSmall = 1.0;
     float brushSizeValueMed = 2.0;
-    float brushSizeValueMax = 4.0;
+    float brushSizeValueMax = 3.0;
 
     float lineWidth = 1.0;
     int sizeX = (baseSizeX * static_cast<int>(scale));
@@ -97,6 +98,7 @@ private:
     Texture texture;
     Sprite sprite;
     Sprite previewSprite;
+    Cursor cursor;
 
     std::stack<Image> imageHistory;
     std::stack<Image> redoHistory;
@@ -168,7 +170,7 @@ void initialize() {
         createRulerText();
         createTopSquareShapes();
         createLeftSquareShapes();
-        create_preview();
+
         create_infoSpace();
         create_infoSymbols();
         create_infoBrushes();
@@ -186,6 +188,7 @@ void initialize() {
         texture.loadFromImage(image);
         sprite.setTexture(texture, true);
         sprite.setScale(scale, scale);
+             create_preview();
         previewScreen.setTexture(&texture);
 
     frameClock.restart();
@@ -684,13 +687,7 @@ void handleKeyPressedEvent(const Event& event) {
         }
     }
     if (event.key.code == Keyboard::Q && (event.key.control || event.key.system)) {
-        
-/*  Hitta nåt sätt att göra det här! och lista ut vilka tangenter som är bäst. Och, ska det vara en varning?
-    Image image;
-    image.create((baseSizeX), (baseSizeY), Color::Transparent);
-    Texture texture;
-    texture.loadFromImage(image); */
-
+// Skapa en ny image att radera det gamla med
     }
 }
 
@@ -714,8 +711,8 @@ void handleMouseButtonPressedEvent(const Event& event) {
             isDrawing = true;
             if (isShiftKeyPressed) {
                 Vector2i mousePos = Mouse::getPosition(window);
-                lineStart.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-                lineStart.y = std::round((mousePos.y - 20) / scale) * scale + 20;
+                lineStart.x = (mousePos.x);
+                lineStart.y = (mousePos.y);
                 lineStartPreview = Vector2f(lineStart.x, lineStart.y);
                 lineEndPreview = lineStartPreview;
                 lineEnd = lineStart;
@@ -757,8 +754,8 @@ void handleMouseButtonReleasedEvent(const Event& event) {
 
     if (isShiftKeyPressed) {
         Vector2i mousePos = Mouse::getPosition(window);
-        lineEnd.x = std::round((mousePos.x - 20 - 20) / scale) * scale + 20 + 20;
-        lineEnd.y = std::round((mousePos.y - 20) / scale) * scale + 20;
+        lineEnd.x = mousePos.x;
+        lineEnd.y = mousePos.y;
         
         drawShiftLines(event);
         preview.setPosition(Vector2f(-scale, -scale));
@@ -808,11 +805,11 @@ void handleSaveButtonClick(const Event& event) {
 // Drawing behöver fortfarande justeras in på rätt ställe!
 void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
-    int x = ((mousePos.x)/scale);
-    int y = ((mousePos.y)/scale);
+    int x = (((mousePos.x)/scale) - static_cast<float>(scale));
+    int y = (((mousePos.y)/scale) - static_cast<float>(scale));
 
-    int x_nearest = (x / scale) * scale;
-    int y_nearest = (y / scale) * scale;
+    int x_nearest = static_cast<int>((x / scale) * scale);
+    int y_nearest = static_cast<int>((y / scale) * scale);
 
     if (selectedBrushSize > brushSizeValueStart) {
         x_nearest -= (selectedBrushSize / 2);
@@ -914,28 +911,60 @@ void render() {
     window.draw(brushSizeMed);
     window.draw(brushSizeMax);
 
-
-// Min brush får programmet att krasha! &#€%"%"!
     // Jag måste skapa min visuella brush här nere för loopen...
         Vector2i mousePos = Mouse::getPosition(window);
-        // Begränsar den till att synas inom spriten
-        Vector2f spritePosition = sprite.getPosition();
         FloatRect spriteBounds = sprite.getGlobalBounds();
         float brushSizeValue = selectedBrushSize * scale;
+        CircleShape centralPoint(2.0f);
+        VertexArray lineX(Lines, 4);
+        VertexArray lineY(Lines, 4);
 
         int scaleSq = scale; // Passar in den i rutnätet
-        int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq));
-        int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq));
-        int brushSizeHalf = std::max(static_cast<float>(brushSizeValue/2), brushSizeValueStart);
+        int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq) + selectedBrushSize);
+        int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq) + selectedBrushSize);
 
         if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+
             brush.setSize(Vector2f(brushSizeValue, brushSizeValue));
-            brush.setPosition(static_cast<int>(x_nearest) + brushSizeHalf, static_cast<int>(y_nearest) + brushSizeHalf);
+            brush.setPosition(static_cast<int>(x_nearest) - brushSizeValue, static_cast<int>(y_nearest) - brushSizeValue);
             brush.setFillColor(mutedWhite);
+
+            centralPoint.setFillColor(Color(elementColorAlfa));
+            lineX[0].color = Color(elementColorAlfa);
+            lineX[1].color = Color(elementColorAlfa);
+            lineX[2].color = Color(elementColorAlfa);
+            lineX[3].color = Color(elementColorAlfa);
+
+            lineY[0].color = Color(elementColorAlfa);
+            lineY[1].color = Color(elementColorAlfa);
+            lineY[2].color = Color(elementColorAlfa);
+            lineY[3].color = Color(elementColorAlfa);
+
+            centralPoint.setOrigin(centralPoint.getRadius(), centralPoint.getRadius());
+            centralPoint.setPosition(static_cast<float>(brush.getPosition().x) +(brushSizeValue/2)-selectedBrushSize, static_cast<float>(brush.getPosition().y) +(brushSizeValue/2)-selectedBrushSize);
+            
+            int lineLengthCross = 30;
+            int lineCenterCross = (brushSizeValueStart * scale);
+            int lineEndCross = (lineLengthCross + brushSizeValue);
+            lineX[0].position = sf::Vector2f((brush.getPosition().x) - lineCenterCross - selectedBrushSize,                  (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[1].position = sf::Vector2f((brush.getPosition().x) - lineEndCross,     (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[2].position = sf::Vector2f((brush.getPosition().x) + lineCenterCross + brushSizeValue - selectedBrushSize,              (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[3].position = sf::Vector2f((brush.getPosition().x) + lineEndCross + brushSizeValue,     (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+
+            lineY[0].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineCenterCross - selectedBrushSize);
+            lineY[1].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineEndCross);
+            lineY[2].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineCenterCross + brushSizeValue - selectedBrushSize);
+            lineY[3].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineEndCross + brushSizeValue);
         }
     // Borste slut
-    window.draw(brush); 
+    window.draw(lineY);             
+    window.draw(lineX);
+    window.draw(brush);
+    window.draw(centralPoint);
     updateBrush();
+
+
+
 
     if (isErasing) {
         window.draw(infoSymbolErase);
@@ -962,17 +991,23 @@ void render() {
             float steps = std::max(std::abs(deltaX), std::abs(deltaY)) * scale;
 
             for (float t = 0.0f; t <= 1.0f; t += scale / steps) {
-                int x = static_cast<int>(lineStartPointX + t * deltaX);
-                int y = static_cast<int>(lineStartPointY + t * deltaY);
+                int x = static_cast<int>(lineStartPointX + t * deltaX)*scale;
+                int y = static_cast<int>(lineStartPointY + t * deltaY)*scale;
 
-                int x_nearest = (static_cast<int>(x));
-                int y_nearest = (static_cast<int>(y));
+                int x_nearest = (((static_cast<int>(x))/scale)*scale)-(selectedBrushSize);
+                int y_nearest = (((static_cast<int>(y))/scale)*scale)-(selectedBrushSize);
 
-                if (x >= 0 && x < initialSizeX && y >= 0 && y < initialSizeY) {
 
-                    preview.setPosition(Vector2f(x_nearest*scale, y_nearest*scale));
-                    preview.setFillColor(Color(penColor));
-                    window.draw(preview);
+                float lineBrushSize = static_cast<float>((selectedBrushSize)/2);
+
+                for (int i = x_nearest - lineBrushSize; i <= x_nearest + lineBrushSize; i += 1) {
+                    for (int j = y_nearest - lineBrushSize; j <= y_nearest + lineBrushSize; j += 1) {
+                        if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+
+                            preview.setPosition(Vector2f(i, j));
+                            preview.setFillColor(Color(penColor));
+                            window.draw(preview);
+                    }   }
                 }
             }
         }
