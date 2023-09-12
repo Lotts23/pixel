@@ -803,26 +803,20 @@ void handleSaveButtonClick(const Event& event) {
 }
 
 // Drawing behöver fortfarande justeras in på rätt ställe!
-void handleDrawing(const Event& event) {
+ void handleDrawing(const Event& event) {
     Vector2i mousePos = Mouse::getPosition(window);
-    int x = (((mousePos.x)/scale) - static_cast<float>(scale));
-    int y = (((mousePos.y)/scale) - static_cast<float>(scale));
-
-    int x_nearest = static_cast<int>((x / scale) * scale);
-    int y_nearest = static_cast<int>((y / scale) * scale);
-
-    if (selectedBrushSize > brushSizeValueStart) {
-        x_nearest -= (selectedBrushSize / 2);
-        y_nearest -= (selectedBrushSize / 2);
-    }
+          
+    int scaleSq = scale; // Passar in den i rutnätet
+    int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq))/scale;
+    int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq))/scale;
 
     for (int i = 0; i < selectedBrushSize; i++) {
-        for (int j = 0; j < selectedBrushSize; j++) {
-            if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-                image.setPixel(x_nearest + i, y_nearest + j, penColor);
-            } else {isDrawing = false;}
+            for (int j = 0; j < selectedBrushSize; j++) {
+                if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
+                    image.setPixel(x_nearest-selectedBrushSize + i, y_nearest-selectedBrushSize + j, penColor);
+                } else {isDrawing = false;}
+            }
         }
-    }
     saveImageToHistory();
     texture.loadFromImage(image);
 }    
@@ -914,21 +908,12 @@ void render() {
     // Jag måste skapa min visuella brush här nere för loopen...
         Vector2i mousePos = Mouse::getPosition(window);
         FloatRect spriteBounds = sprite.getGlobalBounds();
-        float brushSizeValue = selectedBrushSize * scale;
-        CircleShape centralPoint(2.0f);
-        VertexArray lineX(Lines, 4);
-        VertexArray lineY(Lines, 4);
-
-        int scaleSq = scale; // Passar in den i rutnätet
-        int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq) + selectedBrushSize);
-        int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq) + selectedBrushSize);
-
         if (sprite.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
-
-            brush.setSize(Vector2f(brushSizeValue, brushSizeValue));
-            brush.setPosition(static_cast<int>(x_nearest) - brushSizeValue, static_cast<int>(y_nearest) - brushSizeValue);
-            brush.setFillColor(mutedWhite);
-
+            Cursor(hand);
+            float brushSizeValue = selectedBrushSize * scale;
+            CircleShape centralPoint(2.0f);
+            VertexArray lineX(Lines, 4);
+            VertexArray lineY(Lines, 4);
             centralPoint.setFillColor(Color(elementColorAlfa));
             lineX[0].color = Color(elementColorAlfa);
             lineX[1].color = Color(elementColorAlfa);
@@ -939,6 +924,14 @@ void render() {
             lineY[1].color = Color(elementColorAlfa);
             lineY[2].color = Color(elementColorAlfa);
             lineY[3].color = Color(elementColorAlfa);
+
+            int scaleSq = scale; // Passar in den i rutnätet
+            int x_nearest = static_cast<int>(static_cast<float>((mousePos.x / scaleSq) * scaleSq) + selectedBrushSize);
+            int y_nearest = static_cast<int>(static_cast<float>((mousePos.y / scaleSq) * scaleSq) + selectedBrushSize);
+
+            brush.setSize(Vector2f(brushSizeValue, brushSizeValue));
+            brush.setPosition(static_cast<int>(x_nearest) - brushSizeValue, static_cast<int>(y_nearest) - brushSizeValue);
+            brush.setFillColor(mutedWhite);
 
             centralPoint.setOrigin(centralPoint.getRadius(), centralPoint.getRadius());
             centralPoint.setPosition(static_cast<float>(brush.getPosition().x) +(brushSizeValue/2)-selectedBrushSize, static_cast<float>(brush.getPosition().y) +(brushSizeValue/2)-selectedBrushSize);
@@ -955,16 +948,13 @@ void render() {
             lineY[1].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineEndCross);
             lineY[2].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineCenterCross + brushSizeValue - selectedBrushSize);
             lineY[3].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineEndCross + brushSizeValue);
-        }
-    // Borste slut
-    window.draw(lineY);             
-    window.draw(lineX);
-    window.draw(brush);
-    window.draw(centralPoint);
+
+            window.draw(lineY);             
+            window.draw(lineX);
+            window.draw(brush);
+            window.draw(centralPoint);
+        }// Borste slut
     updateBrush();
-
-
-
 
     if (isErasing) {
         window.draw(infoSymbolErase);
