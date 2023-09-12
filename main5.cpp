@@ -679,7 +679,7 @@ void handleKeyPressedEvent(const Event& event) {
     if (event.key.code == Keyboard::Z && (event.key.control || event.key.system) && Keyboard::isKeyPressed(Keyboard::LShift)) {
         redo();
     }
-    if (event.key.code == sf::Keyboard::O || event.key.code == sf::Keyboard::L) {
+    if (event.key.code == Keyboard::O || event.key.code == Keyboard::L) {
         if (openAndLoadImage(image)) {
                             Texture texture;
                             texture.loadFromImage(image);
@@ -687,7 +687,8 @@ void handleKeyPressedEvent(const Event& event) {
         }
     }
     if (event.key.code == Keyboard::Q && (event.key.control || event.key.system)) {
-// Skapa en ny image att radera det gamla med
+        std::cout << "clear" << std::endl;
+        clearAll(image, texture);
     }
 }
 
@@ -793,13 +794,28 @@ void handleSaveButtonClick(const Event& event) {
             isMenuOpen = false;
         } else if (menuLoadText.getGlobalBounds().contains(static_cast<Vector2f>(mousePos))) {
             if (openAndLoadImage(image)) {
-                                sf::Texture texture;
+                                Texture texture;
                                 texture.loadFromImage(image);
-                                sf::Sprite sprite(texture);
+                                Sprite sprite(texture);
             }
             isMenuOpen = false;
         }
     }
+}
+
+void clearAll(Image& image, Texture& texture) {
+    Vector2u imageSize = image.getSize();
+/*  Här behöver jag räkna ut ordentligt ytans storlek, annars krashar det
+    for (unsigned int i = 0; i < imageSize.x/scale; i++) {
+        for (unsigned int j = 0; j < imageSize.y/scale; j++) {
+            if (isErasing) {
+                image.setPixel(i, j, Color::Transparent);
+            } else {
+                image.setPixel(i, j, Color::White);
+            }
+        }
+    } */
+    texture.loadFromImage(image);
 }
 
 // Drawing behöver fortfarande justeras in på rätt ställe!
@@ -861,6 +877,7 @@ void drawShiftLines(const Event& event) {
                         }
                     }
                 }
+                saveImageToHistory();
                 texture.loadFromImage(image);
             }
         }
@@ -945,15 +962,15 @@ void render() {
             int lineLengthCross = 30;
             int lineCenterCross = (brushSizeValueStart * scale);
             int lineEndCross = (lineLengthCross + brushSizeValue);
-            lineX[0].position = sf::Vector2f((brush.getPosition().x) - lineCenterCross - selectedBrushSize,                  (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
-            lineX[1].position = sf::Vector2f((brush.getPosition().x) - lineEndCross,     (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
-            lineX[2].position = sf::Vector2f((brush.getPosition().x) + lineCenterCross + brushSizeValue - selectedBrushSize,              (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
-            lineX[3].position = sf::Vector2f((brush.getPosition().x) + lineEndCross + brushSizeValue,     (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[0].position = Vector2f((brush.getPosition().x) - lineCenterCross - selectedBrushSize,                  (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[1].position = Vector2f((brush.getPosition().x) - lineEndCross,     (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[2].position = Vector2f((brush.getPosition().x) + lineCenterCross + brushSizeValue - selectedBrushSize,              (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
+            lineX[3].position = Vector2f((brush.getPosition().x) + lineEndCross + brushSizeValue,     (brush.getPosition().y) + (brushSizeValue / 2) - selectedBrushSize);
 
-            lineY[0].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineCenterCross - selectedBrushSize);
-            lineY[1].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineEndCross);
-            lineY[2].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineCenterCross + brushSizeValue - selectedBrushSize);
-            lineY[3].position = sf::Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineEndCross + brushSizeValue);
+            lineY[0].position = Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineCenterCross - selectedBrushSize);
+            lineY[1].position = Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) - lineEndCross);
+            lineY[2].position = Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineCenterCross + brushSizeValue - selectedBrushSize);
+            lineY[3].position = Vector2f((brush.getPosition().x) + (brushSizeValue / 2) - selectedBrushSize, (brush.getPosition().y) + lineEndCross + brushSizeValue);
 
             window.draw(lineY);             
             window.draw(lineX);
